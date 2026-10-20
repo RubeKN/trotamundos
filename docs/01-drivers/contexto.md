@@ -3,37 +3,50 @@
 ```mermaid
 flowchart TB
     Usuario["Usuario"]
-    Web["Aplicación web"]
-    App["Aplicación móvil"]
+
+    subgraph Clientes ["Capa de Cliente"]
+        Web["Aplicación web"]
+        App["Aplicación móvil"]
+        ServiciosNativos["Servicios nativos<br/>del dispositivo"]
+    end
 
     Sistema(["Sistema Trotamundos"])
 
-    Agencias["Agencias de terceros"]
-    SistemasDeViajes["Sistemas de Viajes"]
-    APIs["APIs estándar"]
-    Correo["API Correo Electrónico"]
-    Datos["Equipo de datos<br/>Análisis de viajes"]
+    subgraph Integraciones ["Integraciones y Servicios"]
+        direction TB
+        APIs["APIs estándar"]
+        Agencias["Agencias de terceros"]
+        SistemasDeViajes["Sistemas de Viajes"]
+        Correo["API Correo Electrónico"]
+        Redes["Redes sociales"]
+        Datos["Equipo de datos<br/>Análisis de viajes"]
+    end
 
     Usuario <--> Web
     Usuario <--> App
+    App <--> ServiciosNativos
 
-    Web <--> |"Solicitudes y respuestas"| Sistema
-    App <--> |"Solicitudes y respuestas"| Sistema
+    Web <--> Sistema
+    App <--> Sistema
 
     Sistema <--> |"Obtención de información"| APIs
     APIs <--> Agencias
     APIs <--> SistemasDeViajes
 
-    Sistema <--> |"Detección automatica de Reservas"| Correo
+    Sistema --> |"Compartir enlace"| Redes
+    Sistema <--> |"Detección de reservas"| Correo
+    Sistema --> |"Analíticas"| Datos
 
-    Sistema --> |"Recopilación de Analíticas"| Datos
+    Web ~~~ App
+    App ~~~ ServiciosNativos
+    Redes ~~~ APIs ~~~ Correo ~~~ Datos
 
     classDef core fill:#0000ff,color:#ffffff
     classDef actor fill:#808080,color:#ffffff
     classDef external fill:#ffff00,color:#000000
     class Sistema core
     class Usuario,Web,App,Datos actor
-    class Agencias,SistemasDeViajes,APIs,Correo external
+    class Agencias,SistemasDeViajes,APIs,Correo,Redes,ServiciosNativos external
 ```
 
 - Azul: Sistema propio
