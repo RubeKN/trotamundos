@@ -10,7 +10,9 @@ flowchart TB
         ServiciosNativos["Servicios nativos<br/>del dispositivo"]
     end
 
+    Datos["Equipo de datos<br/>Análisis de viajes"]
     Sistema(["Sistema Trotamundos"])
+
 
     subgraph Integraciones ["Integraciones y Servicios"]
         direction TB
@@ -19,7 +21,6 @@ flowchart TB
         SistemasDeViajes["Sistemas de Viajes"]
         Correo["API Correo Electrónico"]
         Redes["Redes sociales"]
-        Datos["Equipo de datos<br/>Análisis de viajes"]
     end
 
     Usuario <--> Web
