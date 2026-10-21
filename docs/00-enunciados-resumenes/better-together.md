@@ -1,41 +1,41 @@
 # Resumen paper "Better Together: An LLM-assisted approach to designing software architectures using Attribute-Driven Design"
-Los LLM pueden generar codigo, explicar patrones y proponer componentes, pero para satisfacer los requerimientos importantes de un sistema es mejor cuando siguen una metodologia formal
+Los LLM pueden generar código, explicar patrones y proponer componentes, pero para satisfacer los requerimientos importantes de un sistema es mejor cuando siguen una metodología formal
 
 1. Metodologia explicita: Indicar como es el proceso de ADD
-2. Documentacion estructurada: Registrar en un documento que evolucione en cada iteracion
-3. Colaboracion: El humano debe revisar decisiones y coregirlas
+2. Documentación estructurada: Registrar en un documento que evolucione en cada iteración
+3. Colaboración: El humano debe revisar decisiones y corregirlas
 
 Pedirle directamente a una IA que diseñe puede
 - Omitir requisitos, QAs, decisiones
-- Proponer componentes que no encajan entre si o se contradicen
-- Falta de justificacion sobre una tecnologia
+- Proponer componentes que no encajan entre sí o se contradicen
+- Falta de justificación sobre una tecnología
 - Distintas ejecuciones producen distintos resultados
-- Falta de detalla
+- Falta de detalles
 
-Los autores recomiendan usar un metodo completo y conocido como estructura de trabajo del LLM
-- Una descripcion explicida del metodo ADD. Describir los pasos del metodo y las actividades esperadas en cada uno
+Los autores recomiendan usar un método completo y conocido como estructura de trabajo del LLM
+- Una descripción explicida del metodo ADD. Describir los pasos del método y las actividades esperadas en cada uno
 - Un rol especializado de arquitecto de software
 - Un plan inicial de iteraciones
-- Un documento arquitectonico unico que se modifica progresivamente
-- La ejecucion paso a paso con etapas para que un humano revise
+- Un documento arquitectónico único que se modifica progresivamente
+- La ejecución paso a paso con etapas para que un humano revise
 
-El paso 4-5 de ADD es donde mas valor aporta el LLM, puede desarrollar alternativas, detalalr componentes y producir documentacion de las decisiones. Aunque requiere una buena revision ya que puede ocultar problemas importantes
+El paso 4-5 de ADD es donde más valor aporta el LLM, puede desarrollar alternativas, detallar componentes y producir documentación de las decisiones. Aunque requiere una buena revisión ya que puede ocultar problemas importantes
 
 ## Recomendaciones del paper
 
 - Archivo `ArchitecturalDrivers.md` con los drivers priorizados
 - Archivo `ADD.md` explicando los pasos formales del metodo
 - Configurar el rol para seguir el perfil del arquitecto senior
-- Antes de iniciar ADD se hacen 3 actividades
+- Antes de iniciar ADD se hacen 3 actividades:
     1. Revisar inputs, el LLM examina el archivo y verifica consistencia de requisitos y comprueba que las prioridades sean comprensibles, si hay ambiguedad debe formular preguntas al usuario
     ```
     Please review the ArchitecturalDrivers.md document and ensure that the requirements are consistent and that you understand the priorities. Ask clarification questions, if needed.
     ```
-    2. Crear un modelo de dominio, identifica conceptos principales, relaciones y responsabilidades para incorporar a ARchitecture.md. Diagrama de clases Mermaid y descripcion de elementos
+    2. Crear un modelo de dominio, identificar conceptos principales, relaciones y responsabilidades para incorporar a `Architecture.md`. Diagrama de clases _Mermaid_ y descripción de elementos
     ```
     Consider the ArchitecturalDrivers.md document and create a domain model for the system. Create this domain model in the Architecture.md document. Represent the domain model using a class diagram using mermaid format. Include a table that describes each element of the domain model.
     ```
-    3. Planificar iteraciones, objetivos de cada iteracion y driver que debe atender, guardar en IterationPlan.md
+    3. Planificar iteraciones, objetivos de cada iteración y driver que debe atender, guardar en IterationPlan.md
     ```
     Consider the requirement priorities in ArchitecturalDrivers.md and the domain model in Architecture.md. Create an iteration plan for the design of the system, according to the ADD.md process. Describe, for each iteration, what the main goal will be. The first iteration should be focused on initially structuring the system. The following iterations should be focused on addressing high priority drivers. Be sure to address requirements that directly support the business in early iterations. Present the iteration plan as a table with iteration number, goal and list of drivers to be addressed. Output the iteration plan to an IterationPlan.md file in the Design folder.
     ```
