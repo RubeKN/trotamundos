@@ -1,5 +1,9 @@
 # Architectural Drivers
 
+## Propósito de la ronda de diseño
+
+Para esta primera ronda del proyecto "Trotamundos", el objetivo será producir el diseño que permita construir un prototipo básico. Con este, la startup podrá empezar a analizar la viabilidad del proyecto desde el punto de vista arquitectónico y también desde la perspectiva de mercado.
+
 ## Requerimientos Funcionales
 
 
