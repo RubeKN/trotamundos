@@ -249,25 +249,42 @@ Es imperativa una integración fluida con intercambios de aerolíneas, hoteles y
 - Respuesta: Respuesta a peticiones HTTP
 - Medida de respuesta: Las peticiones son respondidas con status 2xx en el 90% de los casos y pueden parsearse a términos del sistema
 
-**QA15 - Interoperability: Proveedores email y redes**
+**QA15 - Interoperability: Proveedores email**
 
-El sistema debe interoperar con proveedores de correo para el escaneo de mensajes y con redes sociales para compartir itinerarios.
+El sistema debe interoperar con proveedores de correo para el escaneo de mensajes.
 
 - Fuente de Estímulo: Viajero (Usuario)
-- Estímulo: Se desea conectar un nuevo servicio de mail o redes sociales
-- Artefacto: Módulo que se conecta con las APIS de correo y redes
+- Estímulo: Se desea conectar un nuevo servicio de mail
+- Artefacto: Módulo que se conecta con las APIS de correo
 - Entorno: Operación normal
 - Respuesta: Validación del servicio externo, conexión permanente establecida
 - Medida de respuesta: El usuario se valida en el servicio externo y queda sincronizado en el 90% de los casos.
 
+**QA16 - Interoperability: Proveedores redes**
+
+El sistema debe interoperar con proveedores de redes sociales para compartir itinerarios.
+
+- Fuente de Estímulo: Viajero (Usuario)
+- Estímulo: Se desea conectar una nueva red social
+- Artefacto: Módulo que se conecta con las APIS de redes sociales
+- Entorno: Operación normal
+- Respuesta: Validación del servicio externo, conexión permanente establecida
+- Medida de respuesta: El usuario se valida en el servicio externo y queda sincronizado en el 70% de los casos.
+
 ## Constraints
 
 C1 - Los viajeros deben usar el sistema desde una web o un dispositivo móvil.
+
 C2 - Se deben registrar decisiones mediante ADRs en formato MADR y utilizar contratos para un diseño y prototipo altamente trazables
+
 C3 - El prototipo corre completo en las una PC local, sin servidor dedicado ni nube
+
 C4 - No se usarán APIs reales ni proveedores correos reales, serán simulados
 
+
 ## Utility Tree
+
+Formato: (Importancia del negocio, Dificultad técnica)
 
 ```Mermaid
 ---
@@ -317,5 +334,6 @@ Utility/
     Interoperability/
         Conexión externa
             (H, M) - QA14 "APIs estándar"
-            (H, H) - QA15 "Proveedores email y redes"
+            (H, H) - QA15 "Proveedores email"
+            (L, M) - QA16 "Proveedores redes"
 ```
