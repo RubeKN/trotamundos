@@ -187,12 +187,26 @@ QA14 - Integrability: El sistema debe estar preparado arquitectónicamente para 
 * Respuesta: Se agrega el país con sus configuraciones e interactúa con sistemas externos locales
 * Medida de respuesta: Esfuerzo menor a 15 persona-días, 0 modificaciones en la lógica central
 
+QA15 - Interoperability: Es imperativa una integración fluida con intercambios de aerolíneas, 
+hoteles y arrendadoras a través de APIs estándar.
+* Fuente de Estímulo: Responsables del negocio o del sistema
+* Estímulo: Se desea conectar un nuevo servicio de terceros
+* Artefacto: Módulo que se conecta con las APIS externas
+* Entorno: Operación normal durante intercambio con los servicios
+* Respuesta: Respuesta a peticiones HTTP
+* Medida de respuesta: Las peticiones son respondidas con status 2xx en el 90% de los casos y pueden parsearse a términos del sistema
+
+QA16 - Interoperability: El sistema debe interoperar con proveedores de correo para el escaneo de mensajes y con redes sociales para compartir itinerarios.
+* Fuente de Estímulo: Viajero (Usuario)
+* Estímulo: Se desea conectar un nuevo servicio de mail o redes sociales
+* Artefacto: Módulo que se conecta con las APIS de correo y redes
+* Entorno: Operación normal
+* Respuesta: Validación del servicio externo, conexión permanente establecida
+* Medida de respuesta: El usuario se valida en el servicio externo y queda sincronizado en el 90% de los casos.
+
+
 ## Constraints
-C1 - Los viajeros deben usar el sistema desde una web o un dispositivo móvil
-
-C2 - Debe interoperar con sistemas de viajes y agencias de terceros a traves de APIs estandar
-
-C3 - Debe interoperar con proveedores de correo para escanear mensajes
+C1 - Los viajeros deben usar el sistema desde una web o un dispositivo móvil. ASOCIADO a CU01
 
 ## Utility Tree
 
