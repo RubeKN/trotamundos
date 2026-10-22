@@ -205,18 +205,7 @@ Debe permitir una integración fluida de otros medios de transporte en el futuro
 - Respuesta: El nuevo medio de transporte muestra información desde los servicios de API y visualizarlo en el dashboard
 - Medida de respuesta: Menos de 2 minutos de tiempo de inactividad, esfuerzo en desarrollo menor a 10 persona-días
 
-**QA11 - Maintainability: ADRs**
-
-Se deben registrar decisiones mediante ADRs en formato MADR y utilizar contratos para un diseño y prototipo altamente trazables
-
-- Fuente de Estímulo: Arquitectos de software
-- Estímulo: Nueva decisión de diseño
-- Artefacto: Documentación del proyecto
-- Entorno: Tiempo de desarrollo, antes del despliegue
-- Respuesta: Los ADR son legibles, siguen el formato MADR y son útiles para el diseño e implementación del prototipo
-- Medida de respuesta: El diseño y prototipo se pueden trazar claramente con los ADRs documentados
-
-**QA12 - Usability: Interfaz simple**
+**QA11 - Usability: Interfaz simple**
 
 La interfaz debe ser simple, centrada en el viaje, mitigando frustración de rastrear múltiples aplicaciones y correos
 
@@ -227,7 +216,7 @@ La interfaz debe ser simple, centrada en el viaje, mitigando frustración de ras
 - Respuesta: El usuario logra hacer las acciones dentro de la app sin consultar otras fuentes
 - Medida de respuesta: Menos de 10 segundos en obtener el dato que quería ver, al menos 90% de tareas hechas sin salir de la app
 
-**QA13 - Usability: Capacidades nativas**
+**QA12 - Usability: Capacidades nativas**
 
 El sistema debe aprovechar capacidades nativas (como GPS de móviles) para facilitar las operaciones del usuario
 
@@ -238,7 +227,7 @@ El sistema debe aprovechar capacidades nativas (como GPS de móviles) para facil
 - Respuesta: El sistema logra interactuar con el servicio del dispositivo para obtener el dato necesario
 - Medida de respuesta: 90% de datos se obtienen sin consultar al usuario un ingreso manual, se obtiene el dato en menos de 3 segundos
 
-**QA14 - Integrability: Multiregión**
+**QA13 - Integrability: Multiregión**
 
 El sistema debe estar preparado arquitectónicamente para operar en diversos países
 
@@ -249,7 +238,7 @@ El sistema debe estar preparado arquitectónicamente para operar en diversos pa�
 - Respuesta: Se agrega el país con sus configuraciones e interactúa con sistemas externos locales
 - Medida de respuesta: Esfuerzo menor a 15 persona-días, 0 modificaciones en la lógica central
 
-**QA15 - Interoperability: APIs**
+**QA14 - Interoperability: APIs**
 
 Es imperativa una integración fluida con intercambios de aerolíneas, hoteles y arrendadoras a través de APIs estándar.
 
@@ -260,7 +249,7 @@ Es imperativa una integración fluida con intercambios de aerolíneas, hoteles y
 - Respuesta: Respuesta a peticiones HTTP
 - Medida de respuesta: Las peticiones son respondidas con status 2xx en el 90% de los casos y pueden parsearse a términos del sistema
 
-**QA16 - Interoperability: Proveedores email y redes**
+**QA15 - Interoperability: Proveedores email y redes**
 
 El sistema debe interoperar con proveedores de correo para el escaneo de mensajes y con redes sociales para compartir itinerarios.
 
@@ -274,6 +263,9 @@ El sistema debe interoperar con proveedores de correo para el escaneo de mensaje
 ## Constraints
 
 C1 - Los viajeros deben usar el sistema desde una web o un dispositivo móvil.
+C2 - Se deben registrar decisiones mediante ADRs en formato MADR y utilizar contratos para un diseño y prototipo altamente trazables
+C3 - El prototipo corre completo en las una PC local, sin servidor dedicado ni nube
+C4 - No se usarán APIs reales ni proveedores correos reales, serán simulados
 
 ## Utility Tree
 <... en un futuro>
