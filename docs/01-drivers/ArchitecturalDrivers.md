@@ -210,6 +210,61 @@ C1 - Los viajeros deben usar el sistema desde una web o un dispositivo móvil. A
 
 ## Utility Tree
 
+```Mermaid
+---
+config:
+    treeView:
+        rowIndent: 100
+        lineThickness: 3
+    themeVariables:
+        treeView:
+            labelFontSize: '18px'
+            labelColor: '#7a7b8a'
+            lineColor: '#7a7b8a'
+---
+treeView-beta
+title Utility Tree
+
+Utility/
+
+    Performance/
+        Latencia
+            (M, M) - QA01 "Actualizaciones"
+            (M, M) - QA03 "Latencia Mobile"
+        Responsividad
+            (M, L) - QA02 "Tiempo de Respuesta Web"
+
+    Availability/
+        Tolerancia a Fallo
+            (H, H) - QA04 "Inactividad no planificada"
+
+    Scalability/
+        Carga
+            (H, M) - QA05 "Cuentas de usuario"
+            (H, M) - QA06 "Actividad semanal"
+        Actividad Pico
+            (H, H) - QA07 "Pico por interrupción de viaje"
+
+    Security/
+        Tránsito web
+            (H, L) - QA08 "Acceso email"
+        Autorización
+            (H, M) - QA09 "Itinerarios Compartidos"
+
+    Integrability/
+        Funcionalidad Agregada
+            (H, L) - QA10 "Nuevos medios de transporte"
+        Geográfica
+            (H, M) - QA14 "Operación Internacional"
+    Maintainability/
+        Documentación
+            (L, M) - QA11 "Diseño altamente trazable"
+    Usability
+        User Experience
+            (M, M) - QA12 "UI Simple centrada en viaje"
+            (M, H) - QA13 "Aprovechar capacidades nativas"
+```
+
 ## PREGUNTAR
 
 Considero que el tema de APIs y correo es una restriccion, pero en el enunciado aparece como QA de interoperabilidad
