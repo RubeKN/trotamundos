@@ -41,7 +41,7 @@ Como Viajero quiero que mi dashboard (Ver US01) se mantenga actualizado para man
 
 
 **US05 - Resolución de Problemas**  
-Como Viajero quiero poder elegir mi agencia de viajes preferida e integrarla al sistema para facilitar una rápida resolución de problemas
+Como Viajero quiero poder elegir mi agencia de viajes preferida e integrarla al sistema para facilitar una rápida resolución de problemas  
 **Criterios de Aceptación:**
 - El sistema debe integrarse con la agencia de viajes preferida del viajero.
 - A través de un menú, el viajero debe poder informar una serie de problemas comunes (atención médica, equipaje perdido, vuelo retrasado, etc.) 
