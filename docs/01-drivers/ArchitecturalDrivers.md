@@ -106,7 +106,7 @@ Las actualizaciones deben presentarse en la aplicación en menos de 5 minutos de
 - Respuesta: La actualización llega, se procesa y se muestra en el dashboard
 - Medida de respuesta: La actualización se presenta en menos de 5 minutos desde la generación por la fuente externa en el 95% de los casos
 
-**QA02 - Performance: Tiempo respuesta**
+**QA02 - Performance: Tiempo respuesta Web**
 
 El tiempo de respuesta desde la web debe ser de 800ms
 
@@ -117,7 +117,7 @@ El tiempo de respuesta desde la web debe ser de 800ms
 - Respuesta: La web recibe la solicitud y responde las acciones del usuario
 - Medida de respuesta: El tiempo de respuesta es de 800ms en el 95% de los casos
 
-**QA03 - Performance: Primer despliegue mobile**
+**QA03 - Performance: Primer contenido mobile**
 
 En plataformas móviles, el primer despliegue de contenido debe ocurrir en menos de 1.4 segundos
 
@@ -128,7 +128,7 @@ En plataformas móviles, el primer despliegue de contenido debe ocurrir en menos
 - Respuesta: Muestra el contenido al usuario
 - Medida de respuesta: El primer despliegue de contenido ocurre en menos de 1.4 segundos en el 75% de los casos
 
-**QA04 - Availability: Inactividad**
+**QA04 - Availability: Inactividad no planificada**
 
 El sistema debe tolerar un máximo de 5 minutos de inactividad por mes no planificada
 
@@ -150,7 +150,7 @@ La plataforma debe soportar 15 millones de cuentas de usuarios
 - Respuesta: La plataforma guarda y soporta el almacenamiento de cuentas de usuario
 - Medida de respuesta: Con 15 millones de cuentas, la latencia no degrada fuertemente (300 ms en el 95% de los casos)
 
-**QA06 - Scalability: Usuarios activos**
+**QA06 - Scalability: Actividad semanal**
 
 El sistema debe operar con 2 millones de usuarios semanales activos
 
@@ -172,7 +172,7 @@ El sistema debe soportar picos de trafico ante interrupciones importantes de via
 - Respuesta: El servidor responde correctamente a todos los usuarios
 - Medida de respuesta: Soporta picos de trafico en ciertos días que superan hasta 5 veces el promedio de uso
 
-**QA08 - Security: Acceso a correo**
+**QA08 - Security: Acceso email**
 
 El acceso a los correos debe ser seguro y autorizado
 
@@ -183,7 +183,7 @@ El acceso a los correos debe ser seguro y autorizado
 - Respuesta: Se accede a los datos del correo sin infringir permisos, se cifra el trafico
 - Medida de respuesta: 100% de conexiones cifradas, los datos se mantienen seguros de atacantes
 
-**QA09 - Security: Compartir itinerario**
+**QA09 - Security: Itinerarios compartidos**
 
 Solo las personas específicas por el usuario pueden ver su itinerario
 
@@ -205,7 +205,7 @@ Debe permitir una integración fluida de otros medios de transporte en el futuro
 - Respuesta: El nuevo medio de transporte muestra información desde los servicios de API y visualizarlo en el dashboard
 - Medida de respuesta: Menos de 2 minutos de tiempo de inactividad, esfuerzo en desarrollo menor a 10 persona-días
 
-**QA11 - Usability: Interfaz simple**
+**QA11 - Usability: UI Simple centrada en viaje**
 
 La interfaz debe ser simple, centrada en el viaje, mitigando frustración de rastrear múltiples aplicaciones y correos
 
@@ -216,7 +216,7 @@ La interfaz debe ser simple, centrada en el viaje, mitigando frustración de ras
 - Respuesta: El usuario logra hacer las acciones dentro de la app sin consultar otras fuentes
 - Medida de respuesta: Menos de 10 segundos en obtener el dato que quería ver, al menos 90% de tareas hechas sin salir de la app
 
-**QA12 - Usability: Capacidades nativas**
+**QA12 - Usability: Aprovechar capacidades nativas**
 
 El sistema debe aprovechar capacidades nativas (como GPS de móviles) para facilitar las operaciones del usuario
 
@@ -238,7 +238,7 @@ El sistema debe estar preparado arquitectónicamente para operar en diversos pa�
 - Respuesta: Se agrega el país con sus configuraciones e interactúa con sistemas externos locales
 - Medida de respuesta: Esfuerzo menor a 15 persona-días, 0 modificaciones en la lógica central
 
-**QA14 - Interoperability: APIs**
+**QA14 - Interoperability: APIs estándar**
 
 Es imperativa una integración fluida con intercambios de aerolíneas, hoteles y arrendadoras a través de APIs estándar.
 
@@ -288,9 +288,9 @@ Utility/
 
     Performance/
         Latencia
-            (M, M) - QA01 "Actualizaciones"
-            (M, M) - QA03 "Latencia Mobile"
-        Responsividad
+            (M, M) - QA01 "Presentar Updates"
+            (M, M) - QA03 "Primer contenido Mobile"
+        Responsiveness
             (M, L) - QA02 "Tiempo de Respuesta Web"
 
     Availability/
@@ -299,10 +299,10 @@ Utility/
 
     Scalability/
         Carga
-            (H, M) - QA05 "Cuentas de usuario"
+            (H, M) - QA05 "Cantidad cuentas"
             (H, M) - QA06 "Actividad semanal"
         Actividad Pico
-            (H, H) - QA07 "Pico por interrupción de viaje"
+            (H, H) - QA07 "Picos de tráfico"
 
     Security/
         Tránsito web
@@ -314,12 +314,13 @@ Utility/
         Funcionalidad Agregada
             (H, L) - QA10 "Nuevos medios de transporte"
         Geográfica
-            (H, M) - QA14 "Operación Internacional"
-    Maintainability/
-        Documentación
-            (L, M) - QA11 "Diseño altamente trazable"
-    Usability
+            (H, M) - QA13 "Multiregión"
+    Usability/
         User Experience
-            (M, M) - QA12 "UI Simple centrada en viaje"
-            (M, H) - QA13 "Aprovechar capacidades nativas"
+            (M, M) - QA11 "UI Simple centrada en viaje"
+            (M, H) - QA12 "Aprovechar capacidades nativas"
+    Interoperability/
+        Conexión externa
+            (H, M) - QA14 "APIs estándar"
+            (H, H) - QA15 "Proveedores email y redes"
 ```
