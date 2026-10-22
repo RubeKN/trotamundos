@@ -285,31 +285,26 @@ treeView-beta
 title Utility Tree
 
 Utility/
-
     Performance/
         Latencia
-            (M, M) - QA01 "Presentar Updates"
-            (M, M) - QA03 "Primer contenido Mobile"
+            (H, H) - QA01 "Presentar Updates"
         Responsiveness
             (M, L) - QA02 "Tiempo de Respuesta Web"
-
+            (M, M) - QA03 "Primer contenido Mobile"
     Availability/
         Tolerancia a Fallo
             (H, H) - QA04 "Inactividad no planificada"
-
     Scalability/
         Carga
-            (H, M) - QA05 "Cantidad cuentas"
+            (H, L) - QA05 "Cantidad cuentas"
             (H, M) - QA06 "Actividad semanal"
         Actividad Pico
             (H, H) - QA07 "Picos de tráfico"
-
     Security/
         Tránsito web
             (H, L) - QA08 "Acceso email"
         Autorización
             (H, M) - QA09 "Itinerarios Compartidos"
-
     Integrability/
         Funcionalidad Agregada
             (H, L) - QA10 "Nuevos medios de transporte"
@@ -317,8 +312,8 @@ Utility/
             (H, M) - QA13 "Multiregión"
     Usability/
         User Experience
-            (M, M) - QA11 "UI Simple centrada en viaje"
-            (M, H) - QA12 "Aprovechar capacidades nativas"
+            (M, L) - QA11 "UI Simple centrada en viaje"
+            (L, L) - QA12 "Aprovechar capacidades nativas"
     Interoperability/
         Conexión externa
             (H, M) - QA14 "APIs estándar"
