@@ -337,3 +337,30 @@ Utility/
             (H, H) - QA15 "Proveedores email"
             (L, M) - QA16 "Proveedores redes"
 ```
+
+## Tabla de priorización
+| Driver                            | Importancia del Negocio | Dificultad Técnica |
+|-----------------------------------|-------------------------|--------------------|
+| US01 (Dashboard)                  | H                       | M                  |
+| US02 (Detección emails)           | H                       | H                  |
+| QA01 (Presentar updates)          | H                       | H                  |
+| QA04 (Inactividad no planificada) | H                       | H                  |
+| QA07 (Picos de tráfico)           | H                       | H                  |
+| QA15 (Proveedor email)            | H                       | H                  |
+| US04 (Integración 3ros)           | H                       | M                  |
+| QA06 (Actividad semanal)          | H                       | M                  |
+| QA14 (APIs estándar)              | H                       | M                  |
+| US07 (Compartir)                  | H                       | L                  |
+| QA09 (Itinerarios compartidos)    | H                       | M                  |
+| QA13 (Multiregion)                | H                       | M                  |
+| QA08 (Acceso email)               | H                       | L                  |
+| QA05 (Cantidad cuentas)           | H                       | L                  |
+| QA10 (Nuevos medios)              | H                       | L                  |
+| QA03 (Primer contenido mobile)    | M                       | M                  |
+| QA02 (Tiempo respuesta web)       | M                       | L                  |
+| QA11 (UI simple)                  | M                       | L                  |
+| US06 (Datos)                      | M                       | M                  |
+| US05 (Agencia preferida)          | M                       | L                  |
+| QA16 (Proveedor redes)            | L                       | M                  |
+| QA12 (Capacidades nativas)        | L                       | L                  |
+| US08 (Adicional)                  | ?                       | ?                  |
