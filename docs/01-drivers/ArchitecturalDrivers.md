@@ -19,6 +19,7 @@ Criterios de Aceptación:
 - Debe mostrar un UI simple centrado en el viaje
 - Debe ser el único punto de verdad para los arreglos del viaje (hoteles, autos, vuelos, trenes, autobuses). Combina y muestra datos provenientes de diversas aplicaciones (agencias de viaje, bandeja de correo)
 - El viajero debe poder agregar, actualizar y eliminar reservas de la lista manualmente.
+- Una vez que el viaje se completa, deben archivarse o eliminarse automáticamente de la vista principal.
 
 **US02 - Detección automática de Reservas**
 
@@ -70,11 +71,11 @@ Criterios de Aceptación:
 - El Sistema debe recopilar datos analíticos (tendencias, destinos, cancelaciones) de cada reserva.
 - Se debe proveer una API de uso interno para acceder a los datos.
 
-**US07 - Compartir reservas:**
+**US07 - Compartir reservas**
 
 Como Viajero quiero compartir reservas de mi Dashboard para que personas específicas de mi elección puedan verlas.
 
-**Criterios de Aceptación**
+Criterios de Aceptación:
 
 - Se debe permitir la creación de itinerarios compartidos (grupos de reservas) en el Dashboard (Ver US01).
 - Se deben poder agregar y eliminar reservas a un itinerario compartido.
@@ -139,7 +140,7 @@ El sistema debe tolerar un máximo de 5 minutos de inactividad por mes no planif
 - Respuesta: El sistema detecta el fallo y se recupera adecuadamente
 - Medida de respuesta: El tiempo máximo de inactividad no planeada es menor a 5 minutos en un mes con una detección menor a 1 minuto en los incidentes
 
-**QA5 - Scalability: Cantidad cuentas**
+**QA05 - Scalability: Cantidad cuentas**
 
 La plataforma debe soportar 15 millones de cuentas de usuarios
 
@@ -277,10 +278,9 @@ C1 - Los viajeros deben usar el sistema desde una web o un dispositivo móvil.
 
 C2 - Se deben registrar decisiones mediante ADRs en formato MADR y utilizar contratos para un diseño y prototipo altamente trazables
 
-C3 - El prototipo corre completo en las una PC local, sin servidor dedicado ni nube
+## Concerns
 
-C4 - No se usarán APIs reales ni proveedores correos reales, serán simulados
-
+- Se deben utilizar tecnologias genericas/interfaces, para no tener dependencias a servicios especificos
 
 ## Utility Tree
 
@@ -347,6 +347,7 @@ Utility/
 | QA04 (Inactividad no planificada) | H                       | H                  |
 | QA07 (Picos de tráfico)           | H                       | H                  |
 | QA15 (Proveedor email)            | H                       | H                  |
+| US03 (Filtros y whitelist)        | H                       | L                  |
 | US04 (Integración 3ros)           | H                       | M                  |
 | QA06 (Actividad semanal)          | H                       | M                  |
 | QA14 (APIs estándar)              | H                       | M                  |
