@@ -2,7 +2,7 @@
 
 ```mermaid
 flowchart TB
-    Usuario["Usuario"]
+    Viajero["Viajero"]
 
     subgraph Clientes ["Capa de Cliente"]
         Web["Aplicación web"]
@@ -23,8 +23,8 @@ flowchart TB
         Redes["Redes sociales"]
     end
 
-    Usuario <--> Web
-    Usuario <--> App
+    Viajero <--> Web
+    Viajero <--> App
     App <--> ServiciosNativos
 
     Web <--> Sistema
@@ -36,7 +36,7 @@ flowchart TB
 
     Sistema --> |"Compartir enlace"| Redes
     Sistema <--> |"Detección de reservas"| Correo
-    Sistema --> |"Analíticas"| Datos
+    Sistema <--> |"Analíticas"| Datos
 
     Web ~~~ App
     App ~~~ ServiciosNativos
@@ -46,7 +46,7 @@ flowchart TB
     classDef actor fill:#808080,color:#ffffff
     classDef external fill:#ffff00,color:#000000
     class Sistema core
-    class Usuario,Web,App,Datos actor
+    class Viajero,Web,App,Datos actor
     class Agencias,SistemasDeViajes,APIs,Correo,Redes,ServiciosNativos external
 ```
 
