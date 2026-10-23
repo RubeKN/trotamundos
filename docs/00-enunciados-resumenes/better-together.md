@@ -1,4 +1,5 @@
 # Resumen paper "Better Together: An LLM-assisted approach to designing software architectures using Attribute-Driven Design"
+
 Los LLM pueden generar código, explicar patrones y proponer componentes, pero para satisfacer los requerimientos importantes de un sistema es mejor cuando siguen una metodología formal
 
 1. Metodologia explicita: Indicar como es el proceso de ADD
@@ -6,6 +7,7 @@ Los LLM pueden generar código, explicar patrones y proponer componentes, pero p
 3. Colaboración: El humano debe revisar decisiones y corregirlas
 
 Pedirle directamente a una IA que diseñe puede
+
 - Omitir requisitos, QAs, decisiones
 - Proponer componentes que no encajan entre sí o se contradicen
 - Falta de justificación sobre una tecnología
@@ -13,6 +15,7 @@ Pedirle directamente a una IA que diseñe puede
 - Falta de detalles
 
 Los autores recomiendan usar un método completo y conocido como estructura de trabajo del LLM
+
 - Una descripción explicida del metodo ADD. Describir los pasos del método y las actividades esperadas en cada uno
 - Un rol especializado de arquitecto de software
 - Un plan inicial de iteraciones
@@ -27,38 +30,41 @@ El paso 4-5 de ADD es donde más valor aporta el LLM, puede desarrollar alternat
 - Archivo `ADD.md` explicando los pasos formales del metodo
 - Configurar el rol para seguir el perfil del arquitecto senior
 - Antes de iniciar ADD se hacen 3 actividades:
-    1. Revisar inputs, el LLM examina el archivo y verifica consistencia de requisitos y comprueba que las prioridades sean comprensibles, si hay ambiguedad debe formular preguntas al usuario
-    ```
-    Please review the ArchitecturalDrivers.md document and ensure that the requirements are consistent and that you understand the priorities. Ask clarification questions, if needed.
-    ```
-    2. Crear un modelo de dominio, identificar conceptos principales, relaciones y responsabilidades para incorporar a `Architecture.md`. Diagrama de clases _Mermaid_ y descripción de elementos
-    ```
-    Consider the ArchitecturalDrivers.md document and create a domain model for the system. Create this domain model in the Architecture.md document. Represent the domain model using a class diagram using mermaid format. Include a table that describes each element of the domain model.
-    ```
-    3. Planificar iteraciones, objetivos de cada iteración y driver que debe atender, guardar en IterationPlan.md
-    ```
-    Consider the requirement priorities in ArchitecturalDrivers.md and the domain model in Architecture.md. Create an iteration plan for the design of the system, according to the ADD.md process. Describe, for each iteration, what the main goal will be. The first iteration should be focused on initially structuring the system. The following iterations should be focused on addressing high priority drivers. Be sure to address requirements that directly support the business in early iterations. Present the iteration plan as a table with iteration number, goal and list of drivers to be addressed. Output the iteration plan to an IterationPlan.md file in the Design folder.
-    ```
+  1. Revisar inputs, el LLM examina el archivo y verifica consistencia de requisitos y comprueba que las prioridades sean comprensibles, si hay ambiguedad debe formular preguntas al usuario
+  ```
+  Por favor, revisa el documento ArchitecturalDrivers.md y asegúrate de que los requisitos sean coherentes y de que comprendes las prioridades. Si es necesario, pide aclaraciones.
+  ```
 
-## Prompt de rol sugerido por el paper
+  2. Crear un modelo de dominio, identificar conceptos principales, relaciones y responsabilidades para incorporar a `Architecture.md`. Diagrama de clases _Mermaid_ y descripción de elementos
+  ```
+  Analiza el documento ArchitecturalDrivers.md y crea un modelo de dominio para el sistema. Crea este modelo de dominio en el documento Architecture.md. Representa el modelo de dominio mediante un diagrama de clases en formato Mermaid. Incluye una tabla que describa cada elemento del modelo de dominio.
+  ```
+
+  3. Planificar iteraciones, objetivos de cada iteración y driver que debe atender, guardar en IterationPlan.md
+  ```
+    Ten en cuenta las prioridades que figuran en ArchitecturalDrivers.md y el modelo de dominio de Architecture.md. Crea un plan de iteraciones para el diseño del sistema, de acuerdo con el proceso descrito en ADD.md. Describe, para cada iteración, cuál será el objetivo principal. La primera iteración debe centrarse en la estructuración inicial del sistema. Las iteraciones siguientes deben centrarse en abordar los drivers de alta prioridad. Asegúrate de abordar en las primeras iteraciones los requisitos que respaldan directamente el negocio. Presenta el plan de iteración en forma de tabla con el número de iteración, el objetivo y la lista de drivers que se van a abordar. Guarda el plan de iteración en un archivo llamado IterationPlan.md.
+  ```
+
+## Prompt de rol sugerido por el paper - Traducido con DeepL
 
 ```
-You are Senior Software Architect specialized in cloud-native enterprise systems. Your main goal is to design scalable, secure, and maintainable architectures that align with business goals and real-world constraints such as budget, team size, deadlines, and operational risk.
-You must:
-- Make architectural recommendations that are technically grounded and context-aware.
-- Justify your suggestions using explicit quality attributes (e.g., scalability,performance, cost efficiency).
-- Maintain focus on architectural concerns ( domain boundaries, integration patterns, data flow, deployment model, risk).
-You cannot:
-- Propose solutions that ignore constraints provided by the user (budget, timeline, team capability).
-- Make decisions outside the architect’s responsibilities (e.g., procurement, corporate policy).
-- Introduce speculative technology with no rationale or clear trade-offs.
-Tone and behavior:
-- Think like an experienced architect: structured, concise, technical, but not robotic.
-- Always explain trade-offs (pros/cons) instead of giving absolute answers.
-- Avoid hallucinating: when facts are unknown, ask clarifying questions or state assumptions clearly.
-Output expectations:
-- Provide architecture-level reasoning, not low-level code unless explicitly requested
-- Prefer diagrams and tables for readability. When creating mermaid diagrams, do not put
-parentheses inside brackets.
-- Follow the ADD process exactly as it is described in the file ADD.md
+Eres arquitecto de software sénior especializado en sistemas empresariales nativos de la nube. Tu objetivo principal es diseñar arquitecturas escalables, seguras y fáciles de mantener que se ajusten a los objetivos empresariales y a las limitaciones del mundo real, como el presupuesto, el tamaño del equipo, los plazos y el riesgo operativo.
+Debes:
+- Realizar recomendaciones arquitectónicas que estén fundamentadas técnicamente y tengan en cuenta el contexto.
+- Justificar tus sugerencias utilizando atributos de calidad explícitos (por ejemplo, escalabilidad, rendimiento, interoperabilidad).
+- Mantenerte centrado en las cuestiones arquitectónicas (límites del dominio, patrones de integración, flujo de datos, modelo de implementación, riesgo).
+No puedes:
+- Proponer soluciones que ignoren las limitaciones establecidas por el usuario (presupuesto, plazos, capacidad del equipo).
+- Tomar decisiones que excedan las responsabilidades del arquitecto (p. ej., adquisiciones, política corporativa).
+- Introducir tecnología especulativa sin justificación ni compensaciones claras.
+Tono y comportamiento:
+- Piensa como un arquitecto experimentado: estructurado, conciso, técnico, pero no robótico.
+- Explica siempre los tradeoffs (ventajas/inconvenientes) en lugar de dar respuestas absolutas.
+- Evita hacer suposiciones infundadas: cuando se desconozcan los hechos,
+haz preguntas aclaratorias o expón las hipótesis con claridad.
+Expectativas de resultado:
+- Proporciona razonamientos a nivel de arquitectura, no código de bajo nivel, a menos que se solicite explícitamente.
+- Da preferencia a los diagramas y las tablas para facilitar la lectura.
+Al crear diagramas Mermaid, no pongas paréntesis dentro de corchetes.
+- Sigue el proceso ADD tal y como se describe en el archivo ADD.md
 ```
