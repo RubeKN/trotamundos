@@ -6,9 +6,9 @@ Para esta primera ronda del proyecto "Trotamundos", el objetivo será producir e
 
 ## Requerimientos Funcionales
 
-**US01 - Panel de Gestión**
+**US01 - Dashboard**
 
-Como Viajero quiero ver un panel de gestión (Dashboard) de viajes en línea para ver todas mis reservas existentes.
+Como Viajero quiero ver un Dashboard de viajes en línea para ver todas mis reservas existentes.
 
 Criterios de Aceptación:
 
@@ -18,12 +18,12 @@ Criterios de Aceptación:
 - Debe ser accesible a través de una app para dispositivos móviles.
 - Debe mostrar un UI simple centrado en el viaje
 - Debe ser el único punto de verdad para los arreglos del viaje (hoteles, autos, vuelos, trenes, autobuses). Combina y muestra datos provenientes de diversas aplicaciones (agencias de viaje, bandeja de correo)
+- En caso de obtener información duplicada de múltiples fuentes, se debe identificar, no duplicar y agregar la información del mismo
 - El viajero debe poder agregar, actualizar y eliminar reservas de la lista manualmente.
-- Una vez que el viaje se completa, deben archivarse o eliminarse automáticamente de la vista principal.
 
 **US02 - Detección automática de Reservas**
 
-Como Viajero quiero que mi bandeja de correo electrónico sea escaneada regularmente para agregar automáticamente las reservas al panel.
+Como Viajero quiero que mi bandeja de correo electrónico sea escaneada regularmente para agregar automáticamente las reservas al dashboard.
 
 Criterios de Aceptación:
 
@@ -33,15 +33,14 @@ Criterios de Aceptación:
 
 **US03 - Filtros y Whitelists**
 
-Como Viajero quiero poder filtrar y crear listas de remitentes seguros para mis reservas de viaje con origen de correo electrónico.
+Como Viajero quiero poder filtrar y crear whitelists para mis reservas de viaje con origen de correo electrónico.
 
 Criterios de Aceptación:
 
 - Las reservas que se añadan al Dashboard con origen de correo electrónico (Ver US02) deben clasificarse con un atributo que especifique su remitente.
-- Todas las reservas deben poder agruparse por viaje.
 - Cuando el viaje se completa, deben eliminarse de la vista todas las reservas asociadas.
 - El Viajero debe poder filtrar las reservas por fecha, destino y remitente.
-- El Viajero debe poder crear listas whitelist de remitentes confiables de correo electrónico.
+- El Viajero debe poder crear whitelist de remitentes confiables de correo electrónico.
 
 **US04 - Integración con terceros**
 
@@ -81,7 +80,7 @@ Criterios de Aceptación:
 - Se deben poder agregar y eliminar reservas a un itinerario compartido.
 - Se debe poder eliminar itinerarios compartidos.
 - Cada itinerario compartido tiene por defecto un link público para ser compartido.
-- Cuando un Viajero que no es el dueño accede al link, se agrega a una lista de pendientes de autorización.
+- Cuando un Viajero que no es el dueño accede al link y no tuvo acceso previamente, puede solicitarle acceso al duaño (se agrega a una lista de pendientes de autorización).
 - En todo momento, el Viajero puede Autorizar y Desautorizar a otros a ver sus itinerarios.
 - Se debe asegurar que solo personas autorizadas puedan visualizar itinerarios compartidos.
 - El sistema debe interoperar con redes sociales para compartir itinerarios.
@@ -118,7 +117,7 @@ El tiempo de respuesta desde la web debe ser de 800ms
 - Artefacto: Web, backend
 - Entorno: Operación normal
 - Respuesta: La web recibe la solicitud y responde las acciones del usuario
-- Medida de respuesta: El tiempo de respuesta es de 800ms en el 95% de los casos
+- Medida de respuesta: El tiempo de respuesta es de 800ms para la lectura del dashboard en el 95% de los casos
 
 **QA03 - Performance: Primer contenido mobile**
 
@@ -129,7 +128,7 @@ En plataformas móviles, el primer despliegue de contenido debe ocurrir en menos
 - Artefacto: App móvil (pantalla de carga)
 - Entorno: Operación normal, red estable
 - Respuesta: Muestra el contenido al usuario
-- Medida de respuesta: El primer despliegue de contenido ocurre en menos de 1.4 segundos en el 75% de los casos
+- Medida de respuesta: El primer despliegue de contenido ocurre en menos de 1.4 segundos en el 85% de los casos
 
 **QA04 - Availability: Inactividad no planificada**
 
@@ -140,7 +139,7 @@ El sistema debe tolerar un máximo de 5 minutos de inactividad por mes no planif
 - Artefacto: Servidor/software/hardware
 - Entorno: Durante operación normal
 - Respuesta: El sistema detecta el fallo y se recupera adecuadamente
-- Medida de respuesta: El tiempo máximo de inactividad no planeada es menor a 5 minutos en un mes con una detección menor a 1 minuto en los incidentes
+- Medida de respuesta: El tiempo máximo de inactividad no planeada es menor a 5 minutos en un mes con una detección menor a 1 minuto en los incidentes (Si la falla proviene del servicio de tercero, solo dar aviso al usuario)
 
 **QA05 - Scalability: Cantidad cuentas**
 
@@ -151,7 +150,7 @@ La plataforma debe soportar 15 millones de cuentas de usuarios
 - Artefacto: Base de datos
 - Entorno: Operación normal con 15 millones de cuentas almacenadas
 - Respuesta: La plataforma guarda y soporta el almacenamiento de cuentas de usuario
-- Medida de respuesta: Con 15 millones de cuentas, la latencia no degrada fuertemente (300 ms en el 95% de los casos)
+- Medida de respuesta: Con 15 millones de cuentas, la latencia no degrada fuertemente (300 ms para lectura/escritura de cuentas en el 95% de los casos)
 
 **QA06 - Scalability: Actividad semanal**
 
@@ -162,7 +161,7 @@ El sistema debe operar con 2 millones de usuarios semanales activos
 - Artefacto: Servidor/backend
 - Entorno: Operación normal
 - Respuesta: El sistema atiende las solicitudes dentro de los tiempos estipulados
-- Medida de respuesta: Tiempo de respuesta sostenido (800ms en el 95% de los casos) aun con 500 solicitudes por segundo
+- Medida de respuesta: Tiempo de respuesta sostenido (800ms para consulta/escritura de elementos del dashboard en el 95% de los casos) aun con 500 solicitudes por segundo
 
 **QA07 - Scalability: Picos de trafico**
 
@@ -173,7 +172,7 @@ El sistema debe soportar picos de trafico ante interrupciones importantes de via
 - Artefacto: Servidor
 - Entorno: Carga maxima
 - Respuesta: El servidor responde correctamente a todos los usuarios
-- Medida de respuesta: Soporta picos de trafico en ciertos días que superan hasta 5 veces el promedio de uso
+- Medida de respuesta: Soporta picos de trafico en ciertos días que superan hasta 5 veces el promedio de uso (2500 request/segundo)
 
 **QA08 - Security: Acceso email**
 
@@ -194,7 +193,7 @@ Solo las personas específicas por el usuario pueden ver su itinerario
 - Estímulo: Una persona no autorizada intenta ver el itinerario de un usuario que no lo permitió
 - Artefacto: Sistema de autorización de consultas
 - Entorno: Operación normal, usuario compartiendo itinerario
-- Respuesta: Solo los usuarios permitidos pueden ver el itinerario compartido, se deniega el acceso a cualquier otro
+- Respuesta: Solo los usuarios permitidos pueden ver el itinerario compartido. Los usuarios no autorizados pueden pedir permiso al propietario, si es denegado, no debe poder visualizarlo.
 - Medida de respuesta: 0 accesos no autorizados, 100% de accesos autorizados permitidos
 
 **QA10 - Integrability: Nuevos medios de transporte**
@@ -326,7 +325,7 @@ Utility/
             (H, M) - QA09 "Itinerarios Compartidos"
     Integrability/
         Funcionalidad Agregada
-            (H, L) - QA10 "Nuevos medios de transporte"
+            (H, M) - QA10 "Nuevos medios de transporte"
         Geográfica
             (H, M) - QA13 "Multiregión"
     Usability/
@@ -347,7 +346,6 @@ Las principales user stories que influencian parte de la arquitectura son:
 - US01 (Dashboard) porque es la principal funcionalidad del negocio
 - US02 (Detección de emails) porque involucra integración con servicios externos, lectura y sincronización con ellos
 - US04 (Integración con terceros) porque involucra integración con servicios externos, soportar uso de APIs con distintos formatos
-- ¿ADICIONAL?
 
 Los escenarios fueron priorizados de la siguiente manera:
 
@@ -363,7 +361,7 @@ Los escenarios fueron priorizados de la siguiente manera:
 | QA08 (Acceso email)               | H                       | L                  | US02                |
 | QA05 (Cantidad cuentas)           | H                       | L                  | Todas               |
 | QA09 (Itinerarios compartidos)    | H                       | M                  | US07                |
-| QA10 (Nuevos medios)              | H                       | L                  | US01 (Todas)        |
+| QA10 (Nuevos medios)              | H                       | M                  | US01 (Todas)        |
 | QA03 (Primer contenido mobile)    | M                       | M                  | US01 (Todas)        |
 | QA02 (Tiempo respuesta web)       | M                       | L                  | US01 (Todas)        |
 | QA11 (UI simple)                  | M                       | L                  | US01                |
