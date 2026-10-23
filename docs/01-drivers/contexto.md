@@ -26,6 +26,7 @@ flowchart TB
     Viajero <--> Web
     Viajero <--> App
     App <--> ServiciosNativos
+    Web <--> ServiciosNativos
 
     Web <--> Sistema
     App <--> Sistema
