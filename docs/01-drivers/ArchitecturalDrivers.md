@@ -351,21 +351,21 @@ Las principales user stories que influencian parte de la arquitectura son:
 
 Los escenarios fueron priorizados de la siguiente manera:
 
-| Driver                            | Importancia del Negocio | Dificultad Técnica |
-| --------------------------------- | ----------------------- | ------------------ |
-| QA01 (Presentar updates)          | H                       | H                  |
-| QA04 (Inactividad no planificada) | H                       | H                  |
-| QA07 (Picos de tráfico)           | H                       | H                  |
-| QA15 (Proveedor email)            | H                       | H                  |
-| QA06 (Actividad semanal)          | H                       | M                  |
-| QA14 (APIs estándar)              | H                       | M                  |
-| QA09 (Itinerarios compartidos)    | H                       | M                  |
-| QA13 (Multiregion)                | H                       | M                  |
-| QA08 (Acceso email)               | H                       | L                  |
-| QA05 (Cantidad cuentas)           | H                       | L                  |
-| QA10 (Nuevos medios)              | H                       | L                  |
-| QA03 (Primer contenido mobile)    | M                       | M                  |
-| QA02 (Tiempo respuesta web)       | M                       | L                  |
-| QA11 (UI simple)                  | M                       | L                  |
-| QA16 (Proveedor redes)            | L                       | M                  |
-| QA12 (Capacidades nativas)        | L                       | L                  |
+| Driver                            | Importancia del Negocio | Dificultad Técnica | User Story Asociada |
+| --------------------------------- | ----------------------- | ------------------ | ------------------- |
+| QA01 (Presentar updates)          | H                       | H                  | US01, US02, US04    |
+| QA04 (Inactividad no planificada) | H                       | H                  | Todas               |
+| QA07 (Picos de tráfico)           | H                       | H                  | Todas               |
+| QA15 (Proveedor email)            | H                       | H                  | US02                |
+| QA06 (Actividad semanal)          | H                       | M                  | Todas               |
+| QA14 (APIs estándar)              | H                       | M                  | US04                |
+| QA13 (Multiregion)                | H                       | M                  | Todas               |
+| QA08 (Acceso email)               | H                       | L                  | US02                |
+| QA05 (Cantidad cuentas)           | H                       | L                  | Todas               |
+| QA09 (Itinerarios compartidos)    | H                       | M                  | US07                |
+| QA10 (Nuevos medios)              | H                       | L                  | US01 (Todas)        |
+| QA03 (Primer contenido mobile)    | M                       | M                  | US01 (Todas)        |
+| QA02 (Tiempo respuesta web)       | M                       | L                  | US01 (Todas)        |
+| QA11 (UI simple)                  | M                       | L                  | US01                |
+| QA16 (Proveedor redes)            | L                       | M                  | US07                |
+| QA12 (Capacidades nativas)        | L                       | L                  | US01                |
