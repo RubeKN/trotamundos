@@ -86,13 +86,15 @@ Criterios de Aceptación:
 - Se debe asegurar que solo personas autorizadas puedan visualizar itinerarios compartidos.
 - El sistema debe interoperar con redes sociales para compartir itinerarios.
 
-**US08 - Req Avanzado (PENDIENTE)**
+**US08 - Sistema de Recomendación**
 
-Como < rol > quiero < funcionalidad > para < motivo >.
+Como Viajero quiero que se me sugieran alternativas de alojamientos/transportes/rutas para conocer nuevas propuestas pensadas para mí.
 
 Criterios de Aceptación:
 
-- X
+- En base al análisis del historial y preferencias de los usuarios debe sugerir proactivamente alternativas de alojamiento, transporte o rutas.
+- Debe utilizar una optimización human-in-the-loop donde el usuario interactue con la sugerencia, aceptando o ajustando parámetros.
+- Debe refinar la recomendación en base a las interacciones del usuario.
 
 ## Escenarios de Atributos de Calidad
 
@@ -339,19 +341,24 @@ Utility/
 ```
 
 ## Tabla de priorización
+
+Las principales user stories que influencian parte de la arquitectura son:
+
+- US01 (Dashboard) porque es la principal funcionalidad del negocio
+- US02 (Detección de emails) porque involucra integración con servicios externos, lectura y sincronización con ellos
+- US04 (Integración con terceros) porque involucra integración con servicios externos, soportar uso de APIs con distintos formatos
+- ¿ADICIONAL?
+
+Los escenarios fueron priorizados de la siguiente manera:
+
 | Driver                            | Importancia del Negocio | Dificultad Técnica |
-|-----------------------------------|-------------------------|--------------------|
-| US01 (Dashboard)                  | H                       | M                  |
-| US02 (Detección emails)           | H                       | H                  |
+| --------------------------------- | ----------------------- | ------------------ |
 | QA01 (Presentar updates)          | H                       | H                  |
 | QA04 (Inactividad no planificada) | H                       | H                  |
 | QA07 (Picos de tráfico)           | H                       | H                  |
 | QA15 (Proveedor email)            | H                       | H                  |
-| US03 (Filtros y whitelist)        | H                       | L                  |
-| US04 (Integración 3ros)           | H                       | M                  |
 | QA06 (Actividad semanal)          | H                       | M                  |
 | QA14 (APIs estándar)              | H                       | M                  |
-| US07 (Compartir)                  | H                       | L                  |
 | QA09 (Itinerarios compartidos)    | H                       | M                  |
 | QA13 (Multiregion)                | H                       | M                  |
 | QA08 (Acceso email)               | H                       | L                  |
@@ -360,8 +367,5 @@ Utility/
 | QA03 (Primer contenido mobile)    | M                       | M                  |
 | QA02 (Tiempo respuesta web)       | M                       | L                  |
 | QA11 (UI simple)                  | M                       | L                  |
-| US06 (Datos)                      | M                       | M                  |
-| US05 (Agencia preferida)          | M                       | L                  |
 | QA16 (Proveedor redes)            | L                       | M                  |
 | QA12 (Capacidades nativas)        | L                       | L                  |
-| US08 (Adicional)                  | ?                       | ?                  |
