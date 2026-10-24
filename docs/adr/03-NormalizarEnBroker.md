@@ -1,6 +1,7 @@
 ---
 estado: aceptada
 fecha: 2026-10-24
+fuente: Grupo
 ---
 
 # Normalizar las entradas de proveedores dentro del middleware
