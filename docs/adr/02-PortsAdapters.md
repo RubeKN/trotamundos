@@ -1,6 +1,6 @@
 ---
 estado: aceptada
-fecha: 2026-08-24
+fecha: 2026-10-24
 ---
 
 # Uso de Ports & Adapters para la obtención de informacion de terceros
