@@ -42,7 +42,8 @@ graph TD
     A ---- C((Lógica Trotamundos))
 ```
 
-Vista de arquitectura (agregaremos mas tarde)
+Vista de arquitectura:  
+<img width="60%" height="1978" alt="IMG-20261024-WA0085" src="https://github.com/user-attachments/assets/50e160c5-6be6-432b-b9ad-eec5a72028b6" />
 
 ## PASO 7 - Revisar la aplicación del método
 
