@@ -35,7 +35,14 @@ ports and adapters se encarga de conectar con los servicios externos de forma s�
 
 ## PASO 6 - Vistas
 
-PENDIENTE: Digitalizar vistas en papel
+Descomposición del sistema:
+```mermaid
+graph TD
+    A((Trotamundos)) ---- B((Conexión APIs))
+    A ---- C((Lógica Trotamundos))
+```
+
+Vista de arquitectura (agregaremos mas tarde)
 
 ## PASO 7 - Revisar la aplicación del método
 
