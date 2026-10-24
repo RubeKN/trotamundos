@@ -1,14 +1,14 @@
 ---
-estado: "aceptada"
+estado: aceptada
 fecha: 2026-10-24
 fuente: Grupo
 ---
 
 # Uso de Publisher-Subscriber
 
-## Atacando QAs de performance y availability
+## Contexto y Problema
 
-A nivel estructural, vemos que es urgente definir estilos arquitectónicos que permitan una rápida actualización del Dashboard ante la llegada de nuevos datos por parte de servicios externos. Asimismo, es importante asegurar que el sistema sea tolerante a fallos.
+Atacando QAs de performance y availability. A nivel estructural, vemos que es urgente definir estilos arquitectónicos que permitan una rápida actualización del Dashboard ante la llegada de nuevos datos por parte de servicios externos. Asimismo, es importante asegurar que el sistema sea tolerante a fallos.
 
 ## Decision Drivers
 
