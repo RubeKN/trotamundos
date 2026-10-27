@@ -1,64 +1,48 @@
 ---
 estado: "{propuesta | rechazada | aceptada | obsoleta | reemplazada por ADR-0123}"
 fecha: { YYYY-MM-DD de la ultima actualización }
+fuente: Grupo
 ---
 
-# Titulo corto, representativo del problema solucionado y la solucion encontrada
+# Atacando el rendimiento del sistema en uso normal y picos
 
 ## Contexto y Problema
 
-{Describe el contexto y la formulación del problema, por ejemplo, en formato libre con dos o tres frases o en forma de historia ilustrativa. Quizás te interese plantear el problema en forma de pregunta. Plantéate añadir enlaces a tableros de colaboración o a sistemas de gestión de incidencias. Deja claro el alcance de la decisión, por ejemplo, destacando o señalando elementos de la arquitectura estructural (componentes, conectores, etc.).}
+En términos de performance, es necesario garantizar que el servicio se provea de manera equivalente entre usuarios. Esto alcanza a la arquitectura fundamental del sistema y al planeamiento de su deployment.
 
 ## Decision Drivers
 
-- {decision driver 1}
-- {decision driver 2}
-- …
+- QA06
+- QA07
 
 ## Opciones Consideradas
 
-- {title of option 1}
-- {title of option 2}
-- {title of option 3}
-- …
+- Cola de Prioridad
+- Load Balancer de usuarios
+- Procesamiento secuencial sin colas
 
 ## Resultado de la decisión
 
-Opción elegida: «{título de la opción 1}», porque {justificación. p. ej., es la única opción que cumple el criterio determinante para la decisión | que resuelve el problema {problema} | … | resulta ser la mejor (véase más abajo)}.
-
-<!-- This is an optional element. Feel free to remove. -->
-
-### Consecuencias
-
-- Good, because {positive consequence, e.g., improvement of one or more desired qualities, …}
-- Bad, because {negative consequence, e.g., compromising one or more desired qualities, …}
-- …
-
-<!-- This is an optional element. Feel free to remove. -->
+Hemos elegido aplicar la táctica "Load Balancer" de usuarios porque permite escalar la lógica y repartir las requests de usuario según convenga a cada momento. Aporta resiliencia, admite escalar en ancho y dinamiza el acceso en favor de la performance.
 
 ### Confirmación
 
-{Describe cómo se puede confirmar o se confirmará la implementación o el cumplimiento de la ADR. ¿Existe alguna función de comprobación de idoneidad, ya sea automática o manual? En caso afirmativo, enumérala y explica cómo se aplica. ¿El diseño elegido y su implementación se ajustan a la decisión? Por ejemplo, una revisión del diseño o del código, o una prueba con una biblioteca como ArchUnit, puede ayudar a validarlo. Tenga en cuenta que, aunque clasificamos este elemento como opcional, se incluye en muchas ADR.}
+- Simulando conexiones desde distintos puntos del mundo, cpmprobar que el cliente sea atendido desde distintos servidores.
+- Operando en condiciones de estrés del sistema, controlar que no se excedan los límites definidos por las QA06-07:
+    - T de respuesta sostenido (800ms en el 95% de los casos), con 500 solicitudes/seg
+    - Mantiene los niveles de rendimiento con 2500 solicitudes/seg
 
-## Pros y Cons de las opciones
+## Pros y Contras de las opciones
 
-### {title of option 1}
+### Cola de Prioridad
 
-- Good, because {argument a}
-- Good, because {argument b}
-- Neutral, because {argument c}
-- Bad, because {argument d}
-- …
+- Bueno, baja tiempos de respuesta
+- Neutral, Introduce intermediarios
+- Malo, potencialmente retrasa las escrituras demasiado (starvation)
 
-### {title of other option}
+### Procesamiento secuencial sin colas
 
-- Good, because {argument a}
-- Neutral, because {argument b}
-- Bad, because {argument c}
-- …
-
-<!-- This is an optional element. Feel free to remove. -->
-
-## Más información
-
-{Quizá te interese aportar aquí pruebas adicionales o justificar el resultado de la decisión, así como documentar el consenso del equipo respecto a la misma, definir cuándo y cómo debe llevarse a cabo y si debe revisarse y, en caso afirmativo, cuándo. También pueden aparecer aquí enlaces a otras decisiones y recursos.}
+- Bueno, Sin capas intermedias
+- Bueno, mejor performance en casos generales
+- Malo, no permite agregar concurrencia
+- Malo, bloqueo de mucho tiempo ante grandes escrituras

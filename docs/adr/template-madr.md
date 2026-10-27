@@ -1,6 +1,7 @@
 ---
 estado: "{propuesta | rechazada | aceptada | obsoleta | reemplazada por ADR-0123}"
 fecha: { YYYY-MM-DD de la ultima actualización }
+fuente: { Grupo | LLM }
 ---
 
 # Titulo corto, representativo del problema solucionado y la solucion encontrada
