@@ -12,7 +12,7 @@ Ante la alta demanda de solicitudes de los usuarios, el sistema debe ser capaz d
 
 ## Decision Drivers
 
-QA06-Scalability: Actividad semanal
+- QA06
 
 ## Opciones Consideradas
 
@@ -25,8 +25,9 @@ Elegimos la opción de cola de prioridad, ya que es una alternativa que mejora e
 
 ### Consecuencias
 
-Pros: Mejores tiempos de respuesta ante consultas al dashboard.
-Contras: Introduce intermediarios, puede retrasar las escrituras demasiado (starvation).
+- Bueno, porque mejora tiempos de respuestas ante consultas al dashboard
+- Malo, porque introduce intermediarios
+- Malo, porque puede atrasar las escrituras demasiado (starvation).
 
 ### Confirmación
 
@@ -36,6 +37,6 @@ Ante muchas requests de los usuarios, se priorizara consultas sobre escrituras, 
 
 ### Procesamiento secuencial sin colas
 
-- Pros: No utiliza capas intermedias, por lo que mejora la performance en los casos generales, tanto de lectura como escritura.
-
-- Contras: No permite agregar concurrencia y también bloquea el sistema por mucho tiempo si se requiere una gran escritura.
+- Bueno, porque no utiliza capas intermediarias, la performance es igual en escritura y lectura
+- Malo, porque dificulta agregar concurrencia
+- Malo, porque el sistema se puede bloquear por mucho tiempo si se requiere una gran escritura

@@ -8,7 +8,7 @@ fuente: LLM
 
 ## Contexto y Problema
 
-Un proveedor caido no debe degradar el sistema si se cae ni sobrecargar el middleware causando degradación en la lectura de otros proveedores. El usuario debe ser avisado si un proveedor no está funcionando correctamente
+Un proveedor caido no debe degradar el sistema si se cae ni sobrecargar el broker causando degradación en la lectura de otros proveedores. El usuario debe ser avisado si un proveedor no está funcionando correctamente
 
 ## Decision Drivers
 

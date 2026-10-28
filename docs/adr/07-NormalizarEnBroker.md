@@ -4,11 +4,11 @@ fecha: 2026-10-24
 fuente: Grupo
 ---
 
-# Normalizar las entradas de proveedores dentro del middleware
+# Normalizar las entradas de proveedores dentro del broker
 
 ## Contexto y Problema
 
-Como se describe en ADR02, los proveedores pueden dar las actualizaciones de los arreglos del viajero en cualquier formato. El equipo pensó en que momento se debería normalizar los datos para que la logica de negocio pueda leer en un formato homogeneo.
+Como se describe en ADR06, los proveedores pueden dar las actualizaciones de los arreglos del viajero en cualquier formato. El equipo pensó en que momento se debería normalizar los datos para que la logica de negocio pueda leer en un formato homogeneo.
 
 ## Decision Drivers
 
@@ -19,23 +19,23 @@ Como se describe en ADR02, los proveedores pueden dar las actualizaciones de los
 
 ## Opciones Consideradas
 
-- Normalizar dentro del middleware
-- Normalizar a la salida del buffer (Ver ADR01-PubSub)
+- Normalizar dentro del broker (Antes llamado middleware)
+- Normalizar a la salida del buffer (Ver ADR04-PubSub)
 
 ## Resultado de la decisión
 
-Opción elegida: Normalizar en el middleware, porque permite que la lógica no reciba datos "manchados", es la primera barrera a la información externa.
+Opción elegida: Normalizar en el broker, porque permite que la lógica no reciba datos "manchados", es la primera barrera a la información externa.
 
 ### Consecuencias
 
-- Bueno, porque el middleware puede escribir una reserva en el formato deseado por la lógica
+- Bueno, porque el broker puede escribir una reserva en el formato deseado por la lógica
 - Bueno, porque evita sobrecargar el buffer de campos innecesarios para la lógica
-- Malo, porque el middleware tardará mas en entregar información
+- Malo, porque el broker tardará mas en entregar información
 
 ## Pros y Cons de las opciones
 
 ### Normalizar a la salida del buffer
 
-- Bueno, porque el middleware solo se encarga de pedir información a los servicios y colocarlas en el bus
-- Malo, porque si el middleware no realiza una limpieza, el buffer se llena de datos innecesarios
+- Bueno, porque el broker solo se encarga de pedir información a los servicios y colocarlas en el bus
+- Malo, porque si el broker no realiza una limpieza, el buffer se llena de datos innecesarios
 - Malo, porque obliga a la lógica a limpiar y formatear los datos, o agregar otro middleware más
