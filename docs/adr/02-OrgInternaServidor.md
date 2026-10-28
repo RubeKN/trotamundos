@@ -7,7 +7,8 @@ fuente: Grupo
 # La elección (ADR01) de una arquitectura causa alta centralidad
 
 ## Contexto y Problema
-Como equipo es un concern que la elección de una arquitectura centralizada cause degradación de la performance o accesibilidad del sistema. En futuras iteraciones, se buscará investigar el riesgo e impacto de esto. Eventualmente se plantearán soluciones paleativas.
+
+Al definir (ADR01) una arquitectura general de Cliente-Servidor, corresponde ahora definir la lógica interna del server en términos de arquitectura. El equipo plantea alternativas considerando los drivers.
 
 ## Decision Drivers
 
