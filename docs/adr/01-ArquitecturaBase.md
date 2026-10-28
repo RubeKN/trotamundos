@@ -12,7 +12,6 @@ Como sistema greenfield, lo primero es elegir los cimientos. El equipo planteó 
 
 ## Decision Drivers
 
-- US01 
 - Constraint 1 
 
 ## Opciones Consideradas
