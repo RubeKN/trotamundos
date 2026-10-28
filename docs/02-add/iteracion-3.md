@@ -9,6 +9,7 @@ Escalar la arquitectura del sistema Trotamundos para soportar una alta concurren
 * QA05 - Cantidad de cuentas
 * QA06 - Actividad semanal
 * QA07 - Picos de trafico
+* ADR2 - Centralidad del Server (concern iteración-1)
 
 ## PASO 3 - Descomposición
 
@@ -27,7 +28,7 @@ La lógica de trotamundos es lo que está con mayor incertidumbre. Se decomponen
 | Base de Datos NoSQL | Flexibilidad y mejor escalamiento horizontal, soporte nativo de grandes volumenes de datos | Mayor curva de aprendizaje para el equipo, dificil realizar referencias | QA05 |
 
 
-Para satisfacer tanto los QA sobre las operaciones de usuarios como los de escalabilidad en usuarios se opta por un diseño que combina balanceo de carga y priorizacion de operaciones, ademas de tomar una base relacional para aprovechar su simplicidad y uso general combinandolo con un caché.
+Para satisfacer tanto los QA sobre las operaciones de usuarios como los de escalabilidad en usuarios y en pos de dinamizar la arquitectura Cliente-Servidor descentralizando la lógica, se opta por un diseño que combina balanceo de carga y priorización de operaciones. Además se toma una base relacional para aprovechar su simplicidad y uso general y se lo combina con una caché.
 
 Elegidos: "Load balancer de usuarios", "Cola de prioridad", "Base de datos relacional + Caché"
 
