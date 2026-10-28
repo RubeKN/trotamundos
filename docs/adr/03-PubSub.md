@@ -1,5 +1,5 @@
 ---
-estado: reemplazada por ADR05
+estado: reemplazada por ADR04
 fecha: 2026-10-24
 fuente: Grupo
 ---
