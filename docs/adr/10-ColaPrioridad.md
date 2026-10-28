@@ -1,6 +1,6 @@
 ---
 estado: Aceptada
-fecha: 27/10/2026
+fecha: 2026-10-28
 ---
 
 # Tratamiento de consultas y escrituras
