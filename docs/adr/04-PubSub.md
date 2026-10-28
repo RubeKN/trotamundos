@@ -1,10 +1,10 @@
 ---
-estado: aceptada
+estado: reemplazada por ADR05
 fecha: 2026-10-24
 fuente: Grupo
 ---
 
-# Uso de Publisher-Subscriber
+# Elección de herramienta asíncrona para presentación de actualizaciones
 
 ## Contexto y Problema
 
