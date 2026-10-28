@@ -34,16 +34,16 @@ Opción elegida: Base de Datos Relacional + Caché, porque aprovecha la simplici
 
 ### Confirmación
 
-Para confirmar el correcto cumplimiento de este ADR, debe verificarse que las lecturas van primero a la caché y, si no está el dato, a una réplica. Las escrituras deben ir a la primaria, replicarse y invalidar la caché de los datos cambiados.
+Para confirmar el correcto cumplimiento de este ADR, debe verificarse que las lecturas van primero a la caché y, si no está el dato, a una réplica. Las escrituras deben ir a la primaria, replicarse e invalidar la caché de los datos cambiados.
 
 ## Pros y Cons de las opciones no elegidas
 
 ### Base de Datos NoSQL
 
-- Bueno, porque un documento por viajero escala fácil a 15 millones de cuentas y sirve el Dashboard sin joins
-- Neutral, porque acepta bien formatos distintos de hoteles/vuelos/mails, pero igual hay que homogeneizarlos para el Dashboard
-- Malo, porque viajes, reservas y orígenes se referencian entre sí (y se comparten); en NoSQL eso se duplica o se arma a mano
+- Bueno, porque el modelo basado en documentos escala horizontalmente con facilidad para el volumen de usuarios proyectado y permite servir las vistas principales sin operaciones complejas de relación.
+- Malo, porque las entidades principales del sistema están fuertemente interrelacionadas y compartidas.En NoSQL esto obliga a desnormalizar y duplicar información, o a resolver las relaciones manualmente.
+- Malo, porque implicaria una curva de aprendizaje mayor para el equipo
 
 ## Más información
 
-La decisión surgió en base a brainstorming y debate del equipo entero, contando con concenso total. El LLM coincidió en usar caché de lectura e invalidarla al escribir. El particionado de réplicas por idViajero se trata en ADR-08.
+La decisión surgió en base a brainstorming y debate del equipo entero, contando con concenso total. El LLM coincidió en usar caché de lectura e invalidarla al escribir. 
