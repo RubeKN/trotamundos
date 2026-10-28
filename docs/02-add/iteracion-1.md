@@ -60,9 +60,10 @@ El servidor se organiza en módulos con distintas funcionalidades para el negoci
 
 Es una primera aproximación a como se divide, mas adelante podrian generarse nuevos modulos o submodulos.
 
-## PASO 6 - Vistas
+## PASO 6 - Documentación
 
-Descomposición actual del sistema:
+### Vistas
+**Descomposición actual del sistema (Diagrama de Módulos):**
 
 ```mermaid
 graph TD
@@ -76,9 +77,7 @@ graph TD
     SV --- INT((Integraciones externas))
 ```
 
-
-
-Vista C&C:
+**Vista de Arquitectura (Diagrama C&C):**
 
 ```mermaid
 flowchart LR
@@ -94,7 +93,7 @@ flowchart LR
         INT["Integraciones externas"]
     end
 
-    DB["Base de datoss"]
+    DB["Base de datos"]
     EXT["Servicios externos"]
 
     WEB -->|"HTTP"| API
@@ -103,7 +102,7 @@ flowchart LR
     API --> VIA
     INT -->|"registra actualizaciones"| VIA
     VIA --> AU
-    INT <-->|"consulta periódica"| EXT
+    EXT <-->|"consulta periódica"| INT
     SRV --> DB
 
     classDef core fill:#0000ff,color:#ffffff
@@ -117,6 +116,12 @@ flowchart LR
 - Azul: Sistema propio
 - Amarillo: Sistemas externos
 
+En esta vista estática se muestra claramente la división de lógica entre clientes y servidor. Además se proyectan módulos internos del monolito, que se desarrollarán más adelante en la descomposición.
+
+### ADRs generados
+Las decisiones de esta iteración se documentan en los siguientes Registros:
+- ADR01 - Elección de arquitectura general (client-server)
+- ADR02 - Elección de estilos internos para el servidor (monolito modular)
 
 
 ## PASO 7 - Revisar la aplicación del método
