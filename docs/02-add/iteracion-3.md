@@ -41,9 +41,10 @@ El servidor que trate los usuarios debe procesar su solicitud y encolarla en la 
 Para aprovechar la separación de lecturas y escrituras se coloca una cache para almacenar datos de consultas frecuentes, evitando acceder a la base en cada lectura. Para que esto funcione, las escrituras deben realizarse sobre una base primaria que mantenga consistente las replicas (Sobreescribiendo) y la caché (invalidando)
 
 
-## PASO 6 - Vistas
+## PASO 6 - Documentación:
 
-Descomposición del sistema:
+### Vistas
+**Descomposición del sistema (D. Módulos):**
 
 ```mermaid
 graph TD
@@ -58,7 +59,9 @@ graph TD
 
 ```
 
-Vista de arquitectura tratada en la iteracion:
+Seguimos definiendo paso a paso la descomposición de este sistema.
+
+**Arquitectura tratada en la iteracion (C&C):**
 
 ```mermaid
 flowchart TD
@@ -114,6 +117,17 @@ flowchart TD
     DB_Primary ==>|"Replicación de Datos"| DB_Replica
 
 ```
+
+Se muestran los cambios arquitectónicos realizados en la iteración (distribución de tráfico, encolamiento con priorización y estrategia de persistencia)
+
+### ADRs generados
+
+- ADR06 - La normalización se hace en el Broker
+- ADR07 - Manejo de fallo de proveedores (Circuit Breaker)
+- ADR08 - Balanceo de carga
+- ADR09 - Cola priorizada de requests a la BBDD
+- ADR10 - Uso de BBDD relacional cacheada
+- ADR11 - Fragmentación de la BBDD por ID de Viajero
 
 ## PASO 7 - Revisar la aplicación del método
 
