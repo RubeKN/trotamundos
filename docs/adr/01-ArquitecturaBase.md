@@ -1,6 +1,6 @@
 ---
 estado: aceptada
-fecha: 2026-10-24
+fecha: 2026-10-28
 fuente: Grupo
 ---
 
@@ -12,54 +12,32 @@ Como sistema greenfield, lo primero es elegir los cimientos. El equipo planteó 
 
 ## Decision Drivers
 
-- {decision driver 1}
-- {decision driver 2}
-- …
+- US01 
+- Constraint 1 
 
 ## Opciones Consideradas
 
-- {title of option 1}
-- {title of option 2}
-- {title of option 3}
-- …
+- Cliente-servidor
+- Cliente que consulta con terceros
 
 ## Resultado de la decisión
 
-Opción elegida: «{título de la opción 1}», porque {justificación. p. ej., es la única opción que cumple el criterio determinante para la decisión | que resuelve el problema {problema} | … | resulta ser la mejor (véase más abajo)}.
-
-<!-- This is an optional element. Feel free to remove. -->
+Opción elegida: Cliente-servidor porque permite una interacción del usuario con todo el sistema desarrollado, separando lo que es propio del servidor, de la api con la que va a interactuar el cliente.
 
 ### Consecuencias
 
-- Good, because {positive consequence, e.g., improvement of one or more desired qualities, …}
-- Bad, because {negative consequence, e.g., compromising one or more desired qualities, …}
-- …
-
-<!-- This is an optional element. Feel free to remove. -->
+- Bueno, porque tiene toda la logica del negocio centralizada.
+- Bueno, porque permite reutilizar las funcionalidades para diferentes clientes.
+- Malo, porque puede generar cuello de botella por la centralización de recursos
+- Malo, porque esta arquitectura genera un único punto de falla para el sistema completo
 
 ### Confirmación
 
-{Describe cómo se puede confirmar o se confirmará la implementación o el cumplimiento de la ADR. ¿Existe alguna función de comprobación de idoneidad, ya sea automática o manual? En caso afirmativo, enumérala y explica cómo se aplica. ¿El diseño elegido y su implementación se ajustan a la decisión? Por ejemplo, una revisión del diseño o del código, o una prueba con una biblioteca como ArchUnit, puede ayudar a validarlo. Tenga en cuenta que, aunque clasificamos este elemento como opcional, se incluye en muchas ADR.}
+- El cliente-servidor va a permitir la utilización de los servicios desde una web o app movil, y a su vez será el único punto de verdad para realizar arreglos del viaje, descartando la duplicación de datos.
 
 ## Pros y Cons de las opciones
 
-### {title of option 1}
+### Cliente que consulta con terceros
 
-- Good, because {argument a}
-- Good, because {argument b}
-- Neutral, because {argument c}
-- Bad, because {argument d}
-- …
-
-### {title of other option}
-
-- Good, because {argument a}
-- Neutral, because {argument b}
-- Bad, because {argument c}
-- …
-
-<!-- This is an optional element. Feel free to remove. -->
-
-## Más información
-
-{Quizá te interese aportar aquí pruebas adicionales o justificar el resultado de la decisión, así como documentar el consenso del equipo respecto a la misma, definir cuándo y cómo debe llevarse a cabo y si debe revisarse y, en caso afirmativo, cuándo. También pueden aparecer aquí enlaces a otras decisiones y recursos.}
+- Bueno, con un costo menor de construcción del sistema
+- Malo, en que no existe una interfaz que unifique los datos para comparar duplicados
