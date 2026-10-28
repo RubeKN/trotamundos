@@ -36,15 +36,17 @@ Creemos que las opciones "Detectar intruso" e "Integridad de mensaje" no las cre
 Si es la primera vez que un usuario quiere iniciar en el sistema, se le solicitará permisos para interactuar con su cuenta de email, mediante la utilización de OAuth, y para iniciar, los usuarios deben acceder con email y contraseña. A la hora encriptar los datos, se utilizara https, con lo que solo es necesario tener los credenciales para poder utilizarlo, y mediante la notificación al usuario sobre una situación que excede en decisiones al servidor, se le darán dos opciones: aceptar la solicitud, en caso de que el usuario quiera que el usuario aún no autorizado acceda al itinerario propio, o rechazar la solicitud, en caso de que sea una persona que el usuario considere no apropiada para acceder al mismo.
 
 
-## PASO 6 - Vistas
+## PASO 6 - Documentación
 
-Vista comportamental:
+### Vistas
+
+**Vista comportamental:**
 
 ```mermaid
     sequenceDiagram
     autonumber
-    actor U as Usuario
-    actor UI as Usuario Invitado / No Autorizado
+    actor U as Usuario [ U ]
+    actor UI as Usuario Invitado / No Autorizado [ UI ]
     participant C as Cliente (Frontend)
     participant S as Servidor (Backend)
     participant OAuth as Proveedor de Email (OAuth2)
@@ -95,6 +97,14 @@ Vista comportamental:
     end
 ```
 
+Se muestran en un diagrama de secuencias las posibles alternativas de un usuario intentando ver un itinerario compartido (con o sin login, con o sin autorización, el sistema de autorización en sí mismo).
+
+### ADRs generados
+
+- ADR12 - Encriptación HTTPS
+- ADR13 - Detección de Viajero no habilitados a ver itinerario
+- ADR14 - Autenticación de Viajero
+- ADR15 - Solicitar autorización para conectar correo electrónico
 
 ## PASO 7 - Revisar la aplicación del método
 
