@@ -1,6 +1,6 @@
 ---
-estado: "{propuesta | rechazada | aceptada | obsoleta | reemplazada por ADR-0123}"
-fecha: { YYYY-MM-DD de la ultima actualización }
+estado: aceptada
+fecha: 2026-10-28
 fuente: Grupo
 ---
 
@@ -29,7 +29,7 @@ Hemos elegido aplicar la táctica "Load Balancer" de usuarios porque permite esc
 
 - Simulando conexiones desde distintos puntos del mundo, cpmprobar que el cliente sea atendido desde distintos servidores.
 - Operando en condiciones de estrés del sistema, controlar que no se excedan los límites definidos por las QA06-07:
-    - T de respuesta sostenido (800ms en el 95% de los casos), con 500 solicitudes/seg
+    - Tiempo de respuesta sostenido (800ms en el 95% de los casos), con 500 solicitudes/seg
     - Mantiene los niveles de rendimiento con 2500 solicitudes/seg
 
 ## Pros y Contras de las opciones
