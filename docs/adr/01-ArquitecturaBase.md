@@ -40,3 +40,7 @@ Opción elegida: Cliente-servidor porque permite una interacción del usuario co
 
 - Bueno, con un costo menor de construcción del sistema
 - Malo, en que no existe una interfaz que unifique los datos para comparar duplicados
+
+## Más información
+
+La elección (ADR01) de una arquitectura causa alta centralidad. Como equipo es un concern que la elección de una arquitectura centralizada cause degradación de la performance o accesibilidad del sistema. En futuras iteraciones, se buscará investigar el riesgo e impacto de esto. Eventualmente se plantearán soluciones paleativas.
