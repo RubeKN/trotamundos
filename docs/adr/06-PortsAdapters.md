@@ -39,3 +39,7 @@ Opción elegida: Ports & Adapters porque permite abstraer al proveedor detras de
 - Bueno, porque tiene un flujo de datos claro y una trazabilidad mas sencilla
 - Malo, porque requiere que el cliente (El middleware) conozca a quien está consultado
 - Malo, si algun proveedor da una funcionalidad asincrona de obtención de información (Mejor performance), no se puede aprovechar
+
+## Más información
+
+Hay que considerar un tiempo claro de sondeo en intervalos cortos para asegurar los 5 minutos de tope. Podrian ser 2 minutos como maximo.

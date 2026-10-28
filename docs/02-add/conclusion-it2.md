@@ -7,8 +7,6 @@ La idea del estilo Publisher-Subscriber es la misma que tomamos nosotros. Desaco
 
 El estilo service-based no lo consideramos como servicios aun al resto del componentes, aun no pensamos en el despliegue del sistema. Pero la idea de abstract common services nosotros la imaginamos dentro de el estilo ports&adapters, donde cada proovedor está detras de una interfaz comun, evitando que toquen al logica.
 
-La tactica de concurrencia no fue considerada por el grupo, pero será tomada para mejorar la performance sobre la lectura del bus para leer de distintos proveedores.
-
 La tactica circuit breaker se puede adaptar con un timer, ante una falla de un proveedor se prueba con tiempos incrementales, si tras varios errores sigue fallando el proveedor se informa al usuario que no se puede establecer la conexion con ese proveedor.
 
 La tactica detect and recover, habla sobre el disponibilidad en despliegue, que aun no había sido considerada por el grupo.
