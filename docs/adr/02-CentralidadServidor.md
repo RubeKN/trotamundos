@@ -1,5 +1,5 @@
 ---
-estado: reemplazada por ADR09
+estado: aceptado
 fecha: 2026-10-28
 fuente: Grupo
 ---
