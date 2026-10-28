@@ -1,10 +1,22 @@
-El LLM optó por elegir más drivers sobre el performance (Web y Mobile), tiene sentido su elección porque forma parte de la velocidad con la que llegan los datos. Nosotros no lo tomamos pensando esa parte unicamente como parte del front-end. (Incluso, el LLM en el paso 7 dice que el escenario QA04, no lo abordó correctamente y QA03 quedo parcialmente cubierto)
+El paso 4 tuvo las mismas movilizacion que nos hicieron pensar durante la discusión sobre que estilos elegir
+- Fuentes externas a diferentes tiempos que nuestro sistema
+- Si se cae una fuente externa no debe caerse el dashboard
+- Los datos vienen en formatos distintos segun el proveedor
 
-El LLM pensó en la misma idea de que las lecturas son prioritarias para cumplir las medidas de respuesta de los drivers, al igual que la idea de tener réplicas + balanceador de carga (Lo llamó "Service-Based: servicios de grano grueso y sin estado, con balanceador y autoscaling", pero es la misma idea).
+La idea del estilo Publisher-Subscriber es la misma que tomamos nosotros. Desacoplar los 3ros con el dashboard. El LLM uso la palabra "broker" a lo que nosotros dijimos que es el middleware que hace requests a los 3ros y alimenta el bus, ademas de hacer la normalizacion de datos.
 
-Acerca de la priorización de lecturas por sobre escrituras, nosotros usamos una cola de prioridad por tipo de operación y FIFO. El LLM usó el estilo CQRS, el cual separa las lecturas y escrituras en dos modelos distintos, es la misma idea que planteamos nosotros, pero le dió el nombre al estilo.
+El estilo service-based no lo consideramos como servicios aun al resto del componentes, aun no pensamos en el despliegue del sistema. Pero la idea de abstract common services nosotros la imaginamos dentro de el estilo ports&adapters, donde cada proovedor está detras de una interfaz comun, evitando que toquen al logica.
 
-El LLM sugirió particionar la base de datos por viajeroID, el equipo no sabía que esto se podía hacer pero es una lógica para asegurar que un usuario solo consulte a única replica.
+La tactica de concurrencia no fue considerada por el grupo, pero será tomada para mejorar la performance sobre la lectura del bus para leer de distintos proveedores.
 
-ADRs a agregar:
-Parte del ADR-06 de división de réplicas por idViajero
+La tactica circuit breaker se puede adaptar con un timer, ante una falla de un proveedor se prueba con tiempos incrementales, si tras varios errores sigue fallando el proveedor se informa al usuario que no se puede establecer la conexion con ese proveedor.
+
+La tactica detect and recover, habla sobre el disponibilidad en despliegue, que aun no había sido considerada por el grupo.
+
+Los riegos que indica el LLM son correctos, el correo se debe sondear en intervalos cortos para asegurar los 5 minutos de tope final (El LLM sugiere 2 minutos como maximo). EL dashbord puede tener retraso con los datos en los distintos proveedores, pero el QA pide que se mantenga actualizado con 5 minutos, ya está contemplado. El broker reuqiere redundancia para que no caiga la principal funcionalidad del sistema.
+
+Las vistas del LLM, especialmente V1 intenta mostrar todo el sistema en una misma, nosotros optamos por vistas mas reducidas en el objetivo de la iteración
+
+DECISIONES A INCORPORAR:
+ADR-004, ADR-005
+Las ADRs sobre deployment se excluyen de esta iteración, no era el foco principal de esta iteracion.

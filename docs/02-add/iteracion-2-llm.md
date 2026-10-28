@@ -1,847 +1,705 @@
-# Iteración 2 - Paso 3: Elegir los elementos del sistema a refinar
+# Iteración 1 - Paso 3: Elegir los elementos del sistema a refinar
 
-## Recordatorio de la meta (Paso 2, según IterationPlan.md)
+## Recordatorio de la meta (Paso 2)
 
-**Meta de la iteración 2:** Escalabilidad y rendimiento del núcleo. Soportar 15 M de cuentas, 2 M de usuarios semanales, 500 req/s y picos de 2500 req/s, con tiempos de respuesta de web y de primer contenido móvil.
+**Meta de la iteración 1:** estructurar inicialmente el sistema, con su estilo general, su descomposición de alto nivel, el flujo de consolidación de reservas y la ingesta desacoplada de fuentes externas.
 
-**Drivers:** QA05, QA06, QA07, QA02, QA03.
+**Drivers seleccionados:** US01, QA01, QA04, QA14 y QA15. Los constraints C1 y C2 y el concern de neutralidad tecnológica aplican de forma transversal.
 
-## Estado de los elementos tras la iteración 1
+## Análisis del punto de partida
 
-Es un sistema con decisiones previas, por lo que los candidatos son los resultados de la iteración 1 y se refinan con un enfoque **top-down**.
+Trotamundos es un sistema **greenfield**. No hay iteraciones previas ni elementos heredados, y las únicas estructuras disponibles son las del diagrama de contexto y el modelo de dominio. Por eso el único elemento que se puede refinar es el sistema completo, que hoy es una caja negra con sus actores y sistemas externos.
 
-| Elemento | Estado | Relación con los drivers de la iteración 2 |
-| --- | --- | --- |
-| **Conexión APIs** (publisher) | Definido | Indirecta. Carga de polling con 15 M de cuentas (R3) y presión sobre el buffer (R1). |
-| **Buffer de actualizaciones** | Definido como interfaz genérica | Alta. Absorbe picos de ingesta y es punto único de falla (R1). |
-| **Lógica Trotamundos** | Sin descomponer, con mayor incertidumbre | **Directa.** Atiende lecturas y escrituras del Dashboard, almacena cuentas y reservas, y sirve a los clientes. |
-| **Clientes web y móvil** | Solo como caja en el diagrama | Directa para QA02 y QA03. Su refinamiento depende de la API del Dashboard, que está pendiente (sección 6.5). |
-
-## Elementos propuestos para refinar
-
-| Elemento | Decisión | Justificación |
-| --- | --- | --- |
-| **Lógica Trotamundos** | **Refinar (principal)** | Concentra la atención de QA05, QA06, QA07 y QA02. Hoy es una caja monolítica, por lo que no hay dónde aplicar estrategias de datos, caché, escalado ni balanceo. Es el módulo con mayor incertidumbre. |
-| **Buffer de actualizaciones** | **Refinar (secundario, acotado)** | Es la parte de la ingesta que debe absorber ráfagas (QA07). Se limita a las tácticas de capacidad y amortiguación. La redundancia de R1 queda como punto a evaluar. |
-| **Clientes web y móvil** | **Refinar (secundario, acotado)** | Necesarios para QA02 y QA03 (carga inicial, caché local, contenido incremental). Se define lo estrictamente necesario para la API del Dashboard. |
-| **Conexión APIs** | **No se refina ahora** | Su estructura ya cubre sus drivers. El particionado del polling (R3) se aborda como parámetro de escala, sin modificar sus componentes. |
-
-## Qué implica la selección
-
-- La **descomposición de Lógica Trotamundos** será el eje de la iteración: al separar lectura, escritura y consolidación se podrán escalar de forma independiente.
-- **No se introducen todavía** componentes de seguridad (iteración 3), colaboración ni analítica (iteración 4).
-- Se respetan las restricciones C1, C2 y CN1, por lo que todo lo que se defina será genérico.
-
-# Iteración 2 - Paso 4: Elegir conceptos de diseño
-
-Elementos a refinar (Paso 3): **Lógica Trotamundos** (principal), **Buffer de actualizaciones** (acotado) y la **API del Dashboard** hacia los clientes (acotada).
-
-**Drivers:** QA05 (15 M de cuentas, 300 ms), QA06 (500 req/s, 800 ms p95), QA07 (picos de 2500 req/s), QA02 (lectura web en 800 ms) y QA03 (primer contenido móvil en 1.4 s).
-
-## 1. Diagnóstico previo
-
-Según la descomposición de Bass (tiempo de respuesta = procesamiento + tiempo bloqueado), la carga y la latencia se reparten así:
-
-| Driver | Qué domina la latencia | Palanca arquitectónica |
-| --- | --- | --- |
-| QA02, QA06 | Lectura del Dashboard, que agrega reservas, orígenes y eventos de un viaje. Contención con la escritura de la ingesta. | Separar y optimizar el camino de lectura. |
-| QA03 | Primer contenido: cantidad de llamadas, tamaño de la respuesta y red móvil. | Una sola respuesta agregada y cacheable. |
-| QA05 | Volumen de datos de cuentas. Los accesos son siempre por `viajeroId`, sin consultas entre viajeros. | Partición natural por viajero. |
-| QA07 | Picos 5 veces el promedio, ante interrupciones de viaje que **no son predecibles**. El autoscaling tarda minutos en reaccionar (Bass, cap. 17). | No depender solo de escalar: amortiguar y limitar. |
-
-**Hipótesis:** las lecturas dominan sobre las escrituras. El Dashboard se consulta mucho más de lo que se edita, y la ingesta es asíncrona. Hay que validarlo en el prototipo.
-
-## 2. Conceptos de diseño seleccionados
-
-Se usan **2 estilos** y **2 tácticas**. Quedan fuera las arquitecturas de referencia, los componentes externos y los patrones de diseño: no aplican a esta granularidad, y los componentes externos chocarían con CN1.
-
-| # | Concepto de diseño | Tipo | Drivers | Alternativas descartadas | Justificación |
-| --- | --- | --- | --- | --- | --- |
-| 1 | **Service-Based: servicios de grano grueso y sin estado, con balanceador y autoscaling** | Estilo arquitectónico (overlay sobre Pub-Sub y Ports & Adapters) | QA06, QA07, QA02 | **Monolito modular escalado como unidad:** no permite escalar lectura, escritura y consolidación por separado, y la lectura domina la carga. **Microservicios finos:** la sobrecarga operativa (despliegue, observabilidad, red) no se justifica con el equipo y el plazo de un prototipo. | Permite escalar horizontalmente solo la parte que lo necesita (*maintain multiple copies of computations* con balanceador). Sin estado, cualquier instancia atiende cualquier pedido, lo que habilita el balanceo y la recuperación (QA04). El grano grueso limita la complejidad a 3 servicios. |
-| 2 | **CQRS con modelo de lectura materializado, particionado por `viajeroId`** | Estilo arquitectónico (overlay) | QA02, QA03, QA05, QA06 | **Un único modelo de datos para leer y escribir:** la lectura del Dashboard compite con la consolidación y las ediciones (tiempo bloqueado). **Event Sourcing completo:** más complejidad de la necesaria; basta con `EventoReserva` como historial. | El subscriber de la iteración 1 ya produce el estado consolidado, así que proyectarlo a un modelo de lectura ya armado por viaje es natural. La lectura pasa a ser una consulta por clave, sin joins ni agregaciones en línea. Todas las operaciones son por viajero, por lo que la clave de partición reparte los 15 M de cuentas sin consultas entre particiones (QA05). El orden por viajero del buffer (sección 6.4) encaja con esta clave. |
-| 3 | **Caché de lectura del Dashboard** (*maintain multiple copies of data*) | Táctica de performance | QA02, QA03, QA06 | **Sin caché, solo modelo de lectura:** las lecturas repetidas seguirían llegando al almacén. **Réplicas de lectura como única estrategia:** suben capacidad, pero no bajan latencia ni mejoran QA03. | Evita ir al almacén en cada consulta. Se invalida al proyectar una actualización, lo que acota la obsolescencia. La respuesta única y agregada de la API del Dashboard permite validación condicional, que es lo que más ayuda al primer contenido móvil (QA03). |
-| 4 | **Limitar respuesta a eventos con colas acotadas y priorización** (*limit event response, bound queue sizes, prioritize events*) | Táctica de performance | QA07, QA06, QA04 | **Solo autoscaling reactivo:** tarda minutos y los picos son impredecibles. **Colas sin límite:** consumen memoria sin control y ocultan la saturación. | Aplica *throttling* en la entrada de la API, con rechazo explícito y controlado más allá del umbral. En el buffer absorbe las ráfagas de ingesta con colas acotadas y política de descarte definida. Prioriza la lectura interactiva del usuario sobre la consolidación en segundo plano, de modo que un pico de ingesta no degrade el Dashboard. |
-
-## 3. Cobertura de los conceptos sobre los drivers
-
-| Driver | Conceptos que lo abordan | Cobertura esperada |
-| --- | --- | --- |
-| QA05 (cuentas) | 2 (partición por viajero) | Alta. Queda por definir la estrategia de datos en el Paso 5. |
-| QA06 (actividad semanal) | 1, 2, 3 | Alta |
-| QA07 (picos) | 1, 4 y la asincronía del buffer (iteración 1) | Media. Depende de calibrar el margen de capacidad y los umbrales. |
-| QA02 (web) | 2, 3 | Alta |
-| QA03 (móvil) | 3 y la respuesta agregada de la API | Media. Depende de la red, que escapa a la arquitectura. |
-
-## 4. Trade-offs y riesgos
-
-| Decisión | Beneficio | Costo o riesgo |
-| --- | --- | --- |
-| Service-Based | Escala selectiva y complejidad operativa acotada. | Más piezas que desplegar y monitorear que un monolito, y contratos entre servicios que mantener. |
-| CQRS | Lecturas rápidas y aisladas de la escritura. | **Consistencia eventual.** El modelo de lectura se actualiza después de la escritura, lo que consume parte del presupuesto de QA01 (R2) y afecta la edición manual de US01: el viajero debe ver su cambio de inmediato. |
-| Caché | Menor latencia y menor carga sobre el almacén. | Datos potencialmente desactualizados, y un punto más a invalidar y a dimensionar. |
-| Throttling y colas acotadas | Degradación controlada ante picos. | Hay que decidir qué se rechaza o descarta. Umbrales mal calibrados niegan servicio sin necesidad. |
-
-El **buffer** sigue siendo un punto central (R1). En esta iteración solo se acotan su capacidad y sus colas; su redundancia queda como punto a evaluar en el Paso 5 o el Paso 7.
-
-## 5. Qué queda para el Paso 5
-
-La instanciación de elementos, la asignación de responsabilidades y las interfaces, incluida la API del Dashboard (sección 6.5), se definen en el siguiente paso. Los conceptos de arriba se traducirán en servicios concretos, la forma del modelo de lectura y la política de invalidación de caché.
-
-
-# Iteración 2 - Paso 5: Instanciar elementos, asignar responsabilidades y definir interfaces
-
-Con las hipótesis confirmadas (lectura dominante, consistencia eventual con edición propia inmediata), este paso traduce los 4 conceptos del Paso 4 en elementos concretos.
-
-## 1. Elementos instanciados
-
-| # | Elemento | Concepto que lo origina | Tipo | Estado |
-| --- | --- | --- | --- | --- |
-| E1 | **Puerta de entrada** (balanceo y límite de tasa) | 1 (balanceador) y 4 (throttling y prioridad) | Componente | Nuevo |
-| E2 | **Servicio de Consulta** | 1, 2, 3 | Servicio sin estado | Nuevo |
-| E3 | **Servicio de Escritura** | 1, 2 | Servicio sin estado, con 2 perfiles de despliegue | Nuevo. Absorbe el *Suscriptor* de la iteración 1 |
-| E4 | **Servicio de Proyección** | 2 | Servicio sin estado | Nuevo |
-| E5 | **Canal de eventos de dominio** | 2, 4 | Conector (misma interfaz genérica del buffer, 6.4) | Nuevo |
-| E6 | **Almacén de escritura** | 2 | Almacén (viajes, reservas, orígenes, eventos) | Nuevo |
-| E7 | **Almacén de lectura** | 2 | Almacén (vistas denormalizadas por viaje) | Nuevo |
-| E8 | **Almacén de cuentas** | 2 | Almacén (viajeros y perfil) | Nuevo |
-| E9 | **Caché de lectura** | 3 | Almacén en memoria | Nuevo |
-| E10 | **Buffer de actualizaciones** | 4 | Conector | Refinado (acotado) |
-
-**Decisiones de instanciación:**
-
-- **Escritura con dos perfiles.** Tiene un único dueño del agregado `Reserva`, con dos puntos de entrada: el *perfil ingesta*, que consume el buffer, y el *perfil comandos*, que atiende las ediciones manuales de US01. Se despliegan como grupos de instancias separados y escalan por señales distintas. Así se mantiene la separación lectura / escritura / consolidación del Paso 3 sin que dos servicios compitan por escribir la misma reserva.
-- **Canal de eventos de dominio separado del buffer de ingesta.** Es otra instancia de la misma interfaz, para que un pico de ingesta (QA07) no retrase la proyección ni comparta fallas con ella.
-- **Tres almacenes lógicos.** Cuentas (QA05) tiene su propio objetivo de latencia de 300 ms y acceso por clave. No debe competir con el volumen de reservas ni con el de vistas.
-- **Clave de partición común: `viajeroId`.** Todas las operaciones son por viajero, así que ninguna consulta cruza particiones. Coincide con el orden por viajero del buffer (6.4).
-
-## 2. Asignación de responsabilidades
-
-| Elemento | Responsabilidades | Fuera de su alcance | Escala según |
-| --- | --- | --- | --- |
-| **E1 Puerta de entrada** | Balancear entre instancias con chequeos de salud. Aplicar límite de tasa por viajero y global. Clasificar prioridad: lectura interactiva, luego comandos, luego el resto. Rechazar con `LimiteExcedido` e indicar cuándo reintentar. | Autenticación y autorización (iteración 3). Lógica de negocio. | Tasa de solicitudes. |
-| **E2 Consulta** | Servir `obtenerResumenDashboard` y `obtenerViaje`. Consultar caché y luego almacén de lectura. Atender validación condicional (`SinCambios`). Respetar `versionMinima`. En sobrecarga, servir la vista obsoleta marcándola como tal. | Escribir. Calcular agregaciones en línea. | Tasa y p95 de lectura. |
-| **E3 Escritura (ingesta)** | Consumir `ActualizacionReserva` del buffer. Deduplicar con `origen.referenciaExterna` (H3). Aplicar el cambio con control de versión. Registrar `EventoReserva`. Publicar `ReservaCambiada`. Tolerar reentregas por `idMensaje`. | Hablar con externos. | Profundidad y retraso del buffer. |
-| **E3 Escritura (comandos)** | Validar y aplicar crear, actualizar y eliminar reservas manuales con la **misma lógica de consolidación** y `origen.tipo = manual`. Garantizar idempotencia con `claveIdempotencia`. Pedir proyección inmediata para que el viajero vea su cambio. | Servir lecturas. | Tasa de comandos. |
-| **E4 Proyección** | Consumir `ReservaCambiada` y construir `VistaViaje` y `ResumenDashboard`. Aplicar solo cambios más nuevos que la versión guardada (idempotente). Invalidar la caché del viajero. Incorporar los avisos de proveedor degradado (H2). Registrar `fechaPresentacion`, necesaria para medir QA01. | Decidir reglas de negocio. | Retraso del canal de eventos. |
-| **E5 Canal de eventos** | Entregar `ReservaCambiada` al menos una vez, con orden por viajero. | Mensajes de ingesta externa. | Profundidad. |
-| **E6 / E7 / E8** | E6: fuente de verdad de reservas. E7: lectura rápida por clave. E8: cuentas. Los tres detrás de puertos genéricos y particionados por `viajeroId`. | n/a | Particiones. |
-| **E9 Caché** | Guardar vistas por viajero con vencimiento corto. Se invalida por evento. | Ser fuente de verdad. | Memoria y tasa de aciertos. |
-| **E10 Buffer** | Ver sección 3. | n/a | Particiones. |
-
-## 3. Refinamiento del buffer (acotado)
-
-| Aspecto | Decisión | Justificación |
-| --- | --- | --- |
-| Particionado | Por `viajeroId`. | Permite varios consumidores en paralelo sin perder el orden por viajero. |
-| Capacidad | Colas acotadas, con umbral alto y bajo. | Tactic *bound queue sizes*. Evita crecimiento sin control. |
-| Política ante saturación | `ActualizacionReserva` **nunca se descarta**: el buffer devuelve `CapacidadAgotada` y el publisher aplica **contrapresión**. `EstadoProveedor` se **coalesce** (solo vale el último estado). | La ingesta es *pull* periódico, así que se puede frenar sin perder datos: la consulta se hace después. |
-| Contrapresión | El Planificador espacia las consultas de menor prioridad (por ejemplo cuentas sin actividad reciente) cuando la carga supera el umbral. | Protege la ingesta durante los picos. Cuesta algo de QA01 en esas cuentas. |
-| Redundancia (R1) | Se **exige persistencia y réplica**, sin fijar tecnología. Su evaluación se completa en el Paso 7. | Atiende parcialmente QA04. |
-
-## 4. Interfaces
-
-### 4.1.- API del Dashboard (Puerta de entrada hacia Consulta y Escritura)
-
-Resuelve el pendiente de la sección 6.5. Convenciones:
-
-- Sin estado ni afinidad de sesión.
-- La identidad del viajero la provee la Puerta de entrada (detalle en la iteración 3).
-- Los comandos son idempotentes mediante `claveIdempotencia`, porque el cliente puede reenviar tras un timeout.
-
-**Lectura (E2):**
-
-| Operación | Entrada | Salida | Notas |
-| --- | --- | --- | --- |
-| `obtenerResumenDashboard` | `viajeroId`, `etagCondicional?` | `ResumenDashboard`: viajes activos (id, nombre, destino, fechas, cantidad de reservas, próxima reserva), `avisos[]`, `generadoEn`, `etag`. O bien `SinCambios`. | Respuesta liviana para el primer despliegue móvil (QA03). |
-| `obtenerViaje` | `viajeroId`, `viajeId`, `etagCondicional?`, `versionMinima?` | `VistaViaje`: viaje, reservas consolidadas con sus orígenes, `avisos[]`, `generadoEn`, `etag`, `obsoleto`. O bien `SinCambios`. | `versionMinima` asegura que el viajero vea su propio cambio. |
-
-**Escritura (E3, perfil comandos):**
-
-| Operación | Entrada | Salida |
-| --- | --- | --- |
-| `crearReserva` | `viajeroId`, `viajeId?`, datos de la reserva (tipo, medio, código de confirmación, destino, fechas, detalle), `claveIdempotencia` | `Reserva` y `version` |
-| `actualizarReserva` | `viajeroId`, `reservaId`, cambios, `versionEsperada`, `claveIdempotencia` | `Reserva` y `version` |
-| `eliminarReserva` | `viajeroId`, `reservaId`, `versionEsperada`, `claveIdempotencia` | Confirmación |
-
-**Errores del contrato:** `LimiteExcedido` (con `reintentarEn`), `NoEncontrado`, `ConflictoVersion`, `Invalido`, `NoAutorizado`, `ServicioDegradado`.
-
-### 4.2.- Interfaces internas entre servicios
-
-| Interfaz | De → a | Contenido | Garantías |
-| --- | --- | --- | --- |
-| `ReservaCambiada` (evento) | Escritura → Canal de eventos → Proyección | `idEvento`, `viajeroId`, `viajeId`, `reservaId`, `version`, `tipoCambio`, **estado completo de la reserva**, `fechaGeneracionFuente`, `fechaConsolidacion` | Al menos una vez, orden por viajero, idempotente por `version`. El estado completo evita que Proyección consulte a Escritura. |
-| `proyectarAhora` | Escritura (comandos) → Proyección | `viajeroId`, `reservaId`, `version` | Solo para ediciones manuales, que son de bajo volumen. Si falla, queda la vía asíncrona y la respuesta indica `actualizacionPendiente`. |
-| `invalidar` | Proyección → Caché | Clave del viajero | Idempotente. |
-
-### 4.3.- Puertos de almacenamiento (neutralidad tecnológica, CN1)
-
-| Puerto | Operaciones | Notas |
-| --- | --- | --- |
-| `PuertoAlmacenEscritura` | `leer(clave)`, `escribirCondicional(clave, valor, versionEsperada)`, `listarPorViajero(viajeroId, cursor)` | Escritura condicional por versión para concurrencia optimista. |
-| `PuertoAlmacenLectura` | `leerVista`, `leerResumen`, `aplicarSiMasNueva(viajeroId, viajeId, cambio, version)` | Idempotente por versión. |
-| `PuertoCuentas` | `leerCuenta(viajeroId)`, `guardarCuenta(cuenta)` | Objetivo de 300 ms en el p95 (QA05). |
-| `PuertoCache` | `obtener`, `guardar(clave, valor, ttl)`, `invalidar` | n/a |
-
-### 4.4.- Ampliaciones a la interfaz del buffer (6.4)
-
-| Operación | Quién la usa | Descripción |
-| --- | --- | --- |
-| `consultarCarga(particion)` | Planificador de consultas | Devuelve profundidad y retraso. Habilita la contrapresión. |
-| `publicar` | Conexión APIs | Puede devolver `CapacidadAgotada` (nuevo error). |
-
-## 5. Justificación
-
-| Decisión | Justificación (driver) |
-| --- | --- |
-| Servicios sin estado detrás de la Puerta de entrada | Cualquier instancia atiende cualquier pedido: escala horizontal (QA06, QA07) y se recupera por reemplazo (QA04). |
-| Escritura única dueña del agregado, con dos perfiles | Evita conflictos de escritura entre ingesta y edición manual y mantiene una sola lógica de deduplicación. Cada perfil escala por su propia señal. |
-| `proyectarAhora` solo para comandos manuales | Da la lectura inmediata de su propio cambio aceptada en el Paso 4, con costo acotado porque las escrituras son ~10 % del tráfico. |
-| Estado completo en `ReservaCambiada` | Desacopla Proyección de Escritura. Cuesta mensajes algo más grandes. |
-| Primer despliegue con `ResumenDashboard` y detalle bajo demanda | Reduce el tamaño de la carga inicial móvil (QA03) sin refinar los clientes. |
-| Validación condicional (`etag`) | Ahorra transferencia y procesamiento en lecturas repetidas (QA02, QA03). |
-| Contrapresión en lugar de descarte | La ingesta es *pull*, así que se puede frenar sin pérdida de datos. |
-| Puertos genéricos de almacenamiento | CN1. La tecnología se elige después, sin tocar los servicios. |
-
-## 6. Estimaciones de apoyo (hipótesis, a validar en el prototipo)
-
-| Concepto | Cálculo | Valor |
-| --- | --- | --- |
-| Lecturas / escrituras en régimen | 500 req/s con 90 / 10 | 450 / 50 req/s |
-| Lecturas / escrituras en pico | 2500 req/s con 90 / 10 | 2250 / 250 req/s |
-| Carga al almacén de lectura en pico | Con 80 % de aciertos de caché (hipótesis) | ~450 req/s |
-
-Reglas de autoescalado, según Bass cap. 17: umbrales sostenidos en el tiempo (no instantáneos), capacidad mínima con margen para cubrir el tiempo de arranque, y señales por servicio (latencia y tasa para Consulta, retraso del buffer para Escritura y retraso del canal para Proyección). Como los picos son impredecibles, el autoescalado se **complementa** con el límite de tasa, la caché y las colas, no los reemplaza.
-
-## 7. Riesgos y puntos abiertos que surgen
-
-| ID | Tipo | Descripción | Se resuelve en |
-| --- | --- | --- | --- |
-| R5 | Riesgo | **Atomicidad entre escribir y publicar el evento.** Si una falla ocurre entre ambos pasos, el modelo de lectura queda desactualizado. Se requiere un mecanismo que garantice ambos o ninguno. | Implementación (Paso 7) |
-| R6 | Riesgo | El pipeline de ingesta suma pasos (buffer, consolidación, evento, proyección) que consumen el presupuesto de QA01 (R2). | Paso 7 y medición |
-| R7 | Riesgo | **Contrapresión vs. QA01:** en saturación, algunas cuentas se consultarán con menos frecuencia. | Prototipo |
-| H4 | Hipótesis | La proporción lectura / escritura es ~90 / 10 y la tasa de aciertos de caché ronda el 80 %. | Prototipo |
-| P1 | Punto abierto | Criterio de asignación de una reserva a un `Viaje` (por fechas o destino). | Iteración 3 |
-
-# Iteración 2 - Paso 6: Esbozar vistas y registrar decisiones de diseño
-
-Se toman como confirmadas las dos propuestas del Paso 5: una única escritora del agregado `Reserva` con dos perfiles, y un canal de eventos de dominio separado del buffer de ingesta. Este paso agrega 5 vistas al documento de arquitectura (sección 5) y registra 5 ADRs en formato MADR (sección 7). El análisis de si el diseño cumple los drivers queda para el Paso 7.
-
-## 1. Vistas para el documento de arquitectura
-
-### 5.5.- Iteración 2: descomposición de Lógica Trotamundos (vista de módulos)
-
-**Por qué esta vista:** en la iteración 1, Lógica Trotamundos quedó como una caja sin descomponer. Antes de hablar de ejecución hay que registrar en qué módulos se parte y qué responsabilidad tiene cada uno. Es la partición que permite escalar lectura, escritura y consolidación por separado (ADR-05).
-
-```mermaid
-graph TD
-    S["Trotamundos"] --> C["Conexión APIs"]
-    S --> L["Lógica Trotamundos"]
-    L --> G["Puerta de entrada"]
-    L --> Q["Consulta"]
-    L --> W["Escritura"]
-    L --> P["Proyección"]
-    L --> D["Puertos de almacenamiento"]
-```
-
-| Módulo | Responsabilidad | Estado de refinamiento |
-| --- | --- | --- |
-| **Conexión APIs** | Sin cambios respecto de la iteración 1. | Definido (iteración 1) |
-| **Puerta de entrada** | Balanceo, límite de tasa y prioridad de las solicitudes de los clientes. Expone la API del Dashboard. | Definido. La autenticación y autorización se agregan en la iteración 3. |
-| **Consulta** | Sirve las lecturas del Dashboard desde la caché y el modelo de lectura. | Definido. Los filtros (US03) se refinan en la iteración 3. |
-| **Escritura** | Única dueña del agregado `Reserva`. Consolida y deduplica (ingesta) y atiende las ediciones manuales (comandos). Absorbe al *Suscriptor* de la iteración 1. | Definido a nivel de contrato. Las reglas de deduplicación y la asignación de reservas a viajes (P1) se detallan en la iteración 3. |
-| **Proyección** | Construye el modelo de lectura a partir de los eventos de dominio e invalida la caché. | Definido. Se amplía con los itinerarios compartidos en la iteración 4. |
-| **Puertos de almacenamiento** | Contratos genéricos de acceso a datos (CN1). | Definido. No se elige tecnología. |
-
-### 5.6.- Iteración 2: estructura en ejecución (vista de componentes y conectores)
-
-**Por qué esta vista:** los drivers de la iteración (QA02, QA03, QA05, QA06, QA07) dependen de los caminos que siguen las solicitudes en ejecución, de dónde están las cachés y los almacenes, y de dónde se limita la carga. Eso se expresa con componentes y conectores, no con módulos. Esta vista **reemplaza la caja "Lógica restante" de la vista 5.2** y conserva el módulo Conexión APIs sin cambios.
+## Elemento elegido
 
 ```mermaid
 flowchart LR
-    CLI["Clientes web y móvil"]
-    CON["Módulo Conexión APIs - publisher"]
-    BUF[["Buffer de actualizaciones<br/>particionado por viajero"]]
+    Viajero["Viajero"]
+    Cliente["Clientes web y móvil"]
+    Sistema(["Sistema Trotamundos<br/>elemento a refinar"])
+    Terceros["APIs de terceros<br/>y agencias"]
+    Correo["Proveedores de correo"]
 
-    subgraph LOG ["Módulo Lógica Trotamundos"]
-        GW["Puerta de entrada<br/>balanceo y límite de tasa"]
-        QS["Servicio de Consulta"]
-        WC["Servicio de Escritura<br/>perfil comandos"]
-        WI["Servicio de Escritura<br/>perfil ingesta"]
-        PS["Servicio de Proyección"]
-        EV[["Canal de eventos de dominio"]]
-        CA["Caché de lectura"]
-        AL["Almacén de lectura"]
-        AE["Almacén de escritura"]
-        AC["Almacén de cuentas"]
-    end
-
-    CLI -->|"API del Dashboard"| GW
-    GW -->|"lecturas"| QS
-    GW -->|"comandos"| WC
-
-    QS --> CA
-    QS --> AL
-    QS --> AC
-    WC --> AE
-    WC --> AC
-    WC -->|"proyectarAhora"| PS
-
-    CON -->|"publicar"| BUF
-    BUF -->|"ActualizacionReserva"| WI
-    BUF -.->|"EstadoProveedor"| PS
-    WI --> AE
-    WI -->|"ReservaCambiada"| EV
-    WC -->|"ReservaCambiada"| EV
-    EV --> PS
-    PS --> AL
-    PS -->|"invalidar"| CA
+    Viajero <--> Cliente
+    Cliente <--> Sistema
+    Sistema <--> Terceros
+    Sistema <--> Correo
 
     classDef core fill:#0000ff,color:#ffffff
-    classDef datos fill:#6f8fff,color:#000000
-    class CON,BUF,GW,QS,WC,WI,PS,EV core
-    class CA,AL,AE,AC datos
+    classDef actor fill:#808080,color:#ffffff
+    classDef external fill:#ffff00,color:#000000
+    class Sistema core
+    class Viajero,Cliente actor
+    class Terceros,Correo external
 ```
 
-- Azul oscuro: componentes y conectores propios.
-- Azul claro: almacenes y caché.
+**Elemento a refinar: Sistema Trotamundos (sistema completo).** El enfoque será **top-down**: se descompone el sistema en elementos de nivel más fino que se instanciarán en el Paso 5.
 
-| Componente | Responsabilidad | Decisión |
+## Relación del elemento con los drivers de la iteración
+
+| Driver | Qué exige del refinamiento del sistema |
+| --- | --- |
+| **US01** | Un punto único de verdad para las reservas, que consolide fuentes manuales, de correo y de terceros sin duplicar. |
+| **QA01** | Un camino de datos de baja latencia entre la fuente externa y el dashboard, con un tope de 5 minutos en el 95% de los casos. |
+| **QA04** | Detección y recuperación de fallos con un máximo de 5 minutos de caída al mes. Un fallo de terceros solo avisa al usuario y no debe tirar el sistema. |
+| **QA14** | Un punto de integración con APIs estándar que traduzca formatos heterogéneos al lenguaje del sistema. |
+| **QA15** | Un punto de integración con proveedores de correo, neutral respecto del proveedor, que mantenga la sincronización. |
+
+## Alcance de la refinación
+
+- **Dentro del alcance:** la estructura lógica de alto nivel del backend, el desacoplamiento de la ingesta externa, la consolidación de reservas, la entrega al dashboard y la tolerancia a fallos básica.
+- **Fuera de alcance (iteraciones posteriores):** la estrategia de datos a gran escala y el caché (iteración 2), la seguridad de acceso al correo y la extensibilidad por región y transporte (iteración 3), y el compartir, la analítica y las incidencias (iteración 4).
+
+## Hipótesis a confirmar
+
+1. Los clientes web y móvil se tratan por ahora como consumidores del backend y no se descomponen en esta iteración. Su detalle interno se pospone a la iteración 5.
+2. La descomposición es lógica y no fija todavía el modelo de despliegue. Esa decisión se tomará con los conceptos de diseño del Paso 4.
+
+# Iteración 1 - Paso 4: Elegir conceptos de diseño
+
+## Meta de la iteración (recordatorio)
+
+Estructurar el sistema greenfield y fijar la ingesta desacoplada de fuentes externas. Los drivers son **US01, QA01, QA04, QA14 y QA15**, con C1, C2 y la neutralidad tecnológica como transversales.
+
+## Qué tensión resuelven los conceptos
+
+Los drivers se contradicen en parte, y eso guía la elección.
+
+| Tensión | Drivers | Consecuencia de diseño |
 | --- | --- | --- |
-| Puerta de entrada | Balancear, limitar tasa y priorizar. | ADR-05, ADR-08 |
-| Servicio de Consulta | Lecturas por clave con caché y respuesta condicional. | ADR-05, ADR-06, ADR-07 |
-| Servicio de Escritura (2 perfiles) | Consolidación, deduplicación y ediciones manuales. | ADR-09 |
-| Servicio de Proyección | Mantiene el modelo de lectura y la caché. | ADR-06, ADR-07 |
-| Canal de eventos de dominio | Entrega `ReservaCambiada` con orden por viajero. | ADR-09 |
-| Buffer de actualizaciones | Ingesta con particiones y colas acotadas. | ADR-08 |
-| Almacenes y caché | Detrás de puertos genéricos y particionados por `viajeroId`. | ADR-06, ADR-07 |
+| Las fuentes externas son lentas, heterogéneas y poco confiables, pero el dashboard debe mantenerse disponible. | QA04 con QA14 y QA15 | Hay que aislar la ingesta del camino de lectura del usuario. |
+| Los datos deben llegar en menos de 5 minutos, pero las fuentes envían eventos en formatos distintos. | QA01 con QA14 y QA15 | Hay que normalizar rápido y en paralelo, sin acoplar el procesamiento a cada proveedor. |
+| Se necesita tolerancia a fallos con un equipo de startup. | QA04 con las restricciones del proyecto | Se prefiere la mínima complejidad operativa que cumpla el objetivo. |
 
-**Notas de la vista**
+## 1. Estilos arquitectónicos (2 seleccionados)
 
-- El flujo de ingesta sigue siendo **unidireccional** hacia la lógica, igual que en la iteración 1.
-- La línea punteada `EstadoProveedor` conserva la hipótesis H2: la Proyección incorpora los avisos de proveedor degradado al modelo de lectura.
-- Los servicios son sin estado. Cualquier instancia de un grupo atiende cualquier solicitud.
+| Concepto | Decisión | Alternativas descartadas | Justificación |
+| --- | --- | --- | --- |
+| **Publish-Subscribe (event-driven) con broker de mensajes** | **Seleccionado** | Request-response síncrono directo a cada fuente. Polling desde el backend de lectura. | Desacopla productores (ingesta externa) de consumidores (consolidación y dashboard). Esto protege QA04: un tercero caído no tumba el sistema, solo deja de producir eventos. Sirve a QA01 porque permite procesar en paralelo. Los eventos de alta, cambio y cancelación calzan con `EventoReserva` del dominio. **Trade-off:** hay consistencia eventual y el broker se vuelve un componente crítico que debe ser redundante. |
+| **Service-based (servicios de grano grueso)** | **Seleccionado** | **Monolito modular:** más simple, pero un fallo o pico en la ingesta afecta a todo y no se puede escalar por separado. **Microservicios finos:** máximo aislamiento, pero con costo operativo alto para el tamaño del equipo y un prototipo. | Pocos servicios desplegables, cada uno con una razón clara para estar separado: ingesta, consolidación y lectura del dashboard. Permite aislar fallos y escalar la ingesta de forma independiente a la lectura. Adelanta QA06 y QA07 de la iteración 2 sin pagar el costo de los microservicios. **Trade-off:** más piezas que un monolito, con un despliegue más complejo. |
 
-### 5.7.- Iteración 2: lectura del Dashboard (vista de secuencia)
+No se selecciona un tercer estilo. Layered, por ejemplo, se resuelve dentro de cada servicio y es una decisión de granularidad más fina.
 
-**Por qué esta vista:** QA02 y QA03 miden latencia de extremo a extremo. La secuencia muestra dónde actúan la limitación de tasa, la caché y la respuesta condicional, y de qué manera se evita el camino costoso.
+## 2. Tácticas arquitectónicas
+
+| Táctica | Atributo | Drivers | Alternativas descartadas | Justificación |
+| --- | --- | --- | --- | --- |
+| **Abstract common services + Use an intermediary:** un adaptador por proveedor que traduce al modelo canónico del sistema. | Integrabilidad | QA14, QA15 y el concern de neutralidad | Integración punto a punto dentro de la lógica de negocio. Conectores genéricos configurables sin adaptador propio. | Cada proveedor, sea API o correo, queda tras una interfaz común. Agregar uno nuevo no toca el núcleo. Reduce el tamaño y la distancia de las dependencias, y en el caso del correo evita depender de un proveedor específico. **Trade-off:** hay que mantener un adaptador por proveedor. |
+| **Introduce concurrency** con consumidores paralelos sobre los eventos. | Performance | QA01 | Procesamiento secuencial. Escalar solo verticalmente. | Reduce el tiempo de bloqueo en la cola y ayuda a cumplir el tope de 5 minutos en el 95% de los casos. **Trade-off:** exige que el procesamiento sea idempotente y tolere eventos fuera de orden. |
+| **Circuit breaker con reintentos acotados.** | Disponibilidad | QA04 y QA14 | Reintentos sin límite, que amplifican la falla. Fallar y propagar el error al usuario. | Aísla los fallos de terceros: cuando una fuente falla, el sistema deja de insistir, muestra el último dato conocido y avisa al usuario, como pide QA04. **Trade-off:** los timeouts mal calibrados generan falsos positivos. |
+| **Detect and recover:** monitoreo con ping/echo y heartbeat, más réplicas redundantes de los servicios sin estado. | Disponibilidad | QA04 | Réplica fría, porque la recuperación es demasiado lenta para detectar en menos de 1 minuto. Intervención manual. | El monitor detecta en menos de 1 minuto. Las réplicas activas absorben el fallo sin pérdida de servicio. **Trade-off:** mayor costo de infraestructura y necesidad de un balanceador. |
+
+## 3. Arquitectura de referencia
+
+**No aplica en esta iteración.** Ninguna arquitectura de referencia estándar cubre el conjunto de drivers sin adaptaciones fuertes. Los estilos y tácticas elegidos resuelven la meta con más precisión.
+
+## 4. Componentes externos preexistentes
+
+Para respetar la neutralidad tecnológica, se eligen **categorías genéricas** y no productos. La selección concreta de producto queda para un MADR posterior.
+
+| Categoría | Decisión | Alternativa descartada | Justificación |
+| --- | --- | --- | --- |
+| **Broker de mensajes** con interfaz genérica y alta disponibilidad | Seleccionado | Cola implementada en la propia base de datos | Soporta publish-subscribe, reintentos y colas acotadas. La cola en base de datos mezcla cargas y no escala igual. |
+| **Plataforma de contenedores con orquestación** | Seleccionado | Máquinas virtuales gestionadas a mano | Habilita réplicas, reinicio automático y balanceo, que requieren las tácticas de disponibilidad. |
+| **Base de datos relacional gestionada con réplica** | Seleccionado | Base documental como almacén principal | El modelo de dominio está muy relacionado, con Viaje, Reserva, OrigenReserva y EventoReserva. La estrategia de datos a gran escala se refina en la iteración 2. |
+
+## Trazabilidad con los drivers
+
+| Driver | Estilos | Tácticas | Componentes |
+| --- | --- | --- | --- |
+| US01 | Service-based | Abstract common services | Base relacional |
+| QA01 | Publish-Subscribe | Introduce concurrency | Broker |
+| QA04 | Publish-Subscribe y Service-based | Circuit breaker, detect and recover | Orquestador y broker con alta disponibilidad |
+| QA14 | Publish-Subscribe | Abstract common services y circuit breaker | Broker |
+| QA15 | Publish-Subscribe | Abstract common services | Broker |
+
+## Riesgos y supuestos a confirmar
+
+1. **Latencia de QA01 y correo.** US02 pide sondear la bandeja. Con 5 minutos de tope total, el intervalo de escaneo debe ser de pocos minutos. Si el proveedor ofrece notificaciones push, se usarían, y si no, se sondea.
+2. **Consistencia eventual.** El dashboard puede mostrar datos con unos segundos de retraso. Asumo que es aceptable para el negocio.
+3. **El broker es un punto crítico.** Debe desplegarse con redundancia, porque de otro modo anula la ganancia de QA04.
+4. **Granularidad de servicios.** La separación exacta en servicios se define en el Paso 5, no aquí.
+
+---
+
+# Iteración 1 - Paso 5: Instanciar elementos, asignar responsabilidades y definir interfaces
+
+## 1. Instanciación de los conceptos de diseño
+
+El Paso 4 eligió conceptos genéricos. Aquí cada uno se convierte en elementos concretos del sistema.
+
+| Concepto (Paso 4) | Instanciación |
+| --- | --- |
+| Service-based | 4 servicios de negocio: **Ingesta de Terceros**, **Ingesta de Correo**, **Consolidación** y **Dashboard**. |
+| Publish-Subscribe con broker | 1 broker con 4 canales lógicos (sección 4). |
+| Abstract common services / Intermediary | Un **puerto de proveedor** por tipo de fuente, con un adaptador por proveedor dentro de cada servicio de ingesta. Todos producen el mismo **evento normalizado**. |
+| Introduce concurrency | Consolidación con **N consumidores competidores**, con partición por viajero para preservar el orden de los eventos de una misma reserva. |
+| Circuit breaker con reintentos acotados | Un breaker **por proveedor** dentro de cada adaptador. Al abrirse, emite un evento de estado de la fuente. |
+| Detect and recover | **Monitor de salud** externo a los servicios, **réplicas** mínimas por servicio sin estado y alta disponibilidad en broker y base de datos. |
+| Contenedores con orquestación, base relacional, broker | Infraestructura de ejecución. No tiene lógica de negocio. |
+
+**Por qué 4 servicios y no más.** Cada uno existe por una razón de aislamiento o escalado distinta:
+
+| Servicio | Razón de ser separado |
+| --- | --- |
+| Ingesta de Terceros | Su carga depende de la cantidad de proveedores y de sus caídas. |
+| Ingesta de Correo | Su carga depende del volumen de cuentas conectadas. Usa un patrón de acceso distinto, con parseo de texto no estructurado y sondeo. |
+| Consolidación | Es el único escritor de reservas, y concentra la deduplicación en un solo lugar. |
+| Dashboard | Debe escalar con el tráfico de lectura y no depender de la salud de la ingesta. |
+
+Separar la ingesta de Terceros y la de Correo evita que un problema de parseo de correos afecte las integraciones con APIs.
+
+## 2. Elementos y responsabilidades
+
+| Elemento | Responsabilidades | Entidades del dominio | Propiedades |
+| --- | --- | --- | --- |
+| **API Gateway y balanceador** | Punto de entrada único para web y móvil (C1). Enruta, termina TLS y balancea entre réplicas del Dashboard y de Consolidación. | N/A | Sin estado, 2 o más réplicas. |
+| **Servicio Dashboard** | Consulta de viajes y reservas organizados por viaje. Mantiene el estado visible de cada fuente. Empuja a los clientes los cambios recibidos del broker. Recibe las altas, cambios y bajas manuales y las delega a Consolidación. | Viajero, Viaje, Reserva, CuentaCorreo y estado de fuentes, en modo lectura | Sin estado, 2 o más réplicas, solo lectura sobre los datos de reservas. |
+| **Servicio Consolidación** | **Único escritor de reservas.** Consume eventos normalizados. Deduplica y fusiona fuentes en una sola `Reserva`. Asocia la reserva a un `Viaje`. Registra `OrigenReserva` y `EventoReserva` con las dos fechas necesarias para medir QA01. Aplica las operaciones manuales. Publica los cambios consolidados. | Reserva y especializaciones, OrigenReserva, EventoReserva, Viaje | Sin estado, 2 o más réplicas, consumidores competidores. |
+| **Servicio Ingesta de Terceros** | Se conecta a sistemas de viajes y agencias vía APIs estándar mediante adaptadores. Recibe notificaciones cuando el proveedor las ofrece, y si no hace sondeo con un intervalo acotado. Traduce al evento normalizado. Controla el circuit breaker por proveedor. Publica el estado de cada fuente. | ProveedorViajes, AgenciaViajes | Estado mínimo de cursores de sondeo, 2 o más réplicas. |
+| **Servicio Ingesta de Correo** | Mantiene la conexión con la cuenta de correo mediante adaptadores por proveedor. Sondea los mensajes nuevos, identifica los relacionados con viajes y extrae los datos de reserva y el remitente. Traduce al evento normalizado. Controla el circuit breaker por proveedor. | CuentaCorreo | Estado de cursor de escaneo por cuenta, 2 o más réplicas, con reparto de cuentas entre réplicas. |
+| **Broker de mensajes** | Transporta los eventos entre servicios con entrega garantizada y colas acotadas. Soporta reintentos y una cola de mensajes inválidos. | N/A | Clúster con alta disponibilidad. |
+| **Datos de reservas** | Almacén relacional de Viaje, Reserva, OrigenReserva y EventoReserva. | Las anteriores | Réplica con failover. Escritura solo desde Consolidación. |
+| **Datos de integración** | Almacén separado de configuración y estado de conexiones, es decir CuentaCorreo, ProveedorViajes y cursores. | CuentaCorreo, ProveedorViajes | Mismo motor, esquema separado. Escritura solo desde las ingestas. |
+| **Monitor de salud** | Aplica ping/echo y heartbeat a servicios, broker y bases de datos. Alerta ante fallos y dispara la recuperación vía orquestador. | N/A | Independiente de los servicios monitoreados. |
+
+### Decisiones de asignación de responsabilidades
+
+- **Consolidación es el único escritor.** Concentra la deduplicación de US01 en un punto y evita condiciones de carrera entre fuentes.
+  - El Dashboard le delega las operaciones manuales por interfaz sincrónica. Así la lectura del usuario nunca depende de Consolidación, y solo la escritura lo hace.
+  - **Trade-off:** acopla las escrituras manuales a la disponibilidad de Consolidación, mitigado con réplicas.
+- **Propiedad de datos por servicio.** Hay dos esquemas separados, uno de reservas y otro de integración. Ningún servicio escribe en datos ajenos, lo que mantiene bajo el acoplamiento.
+- **La ingesta no consolida.** Los adaptadores traducen formato, pero no deciden si algo es un duplicado. Cambiar la regla de deduplicación no toca los adaptadores.
+- **Los fallos de terceros no tocan al Dashboard.** Un breaker abierto produce un evento de estado. El Dashboard muestra los últimos datos y un aviso, como pide QA04.
+
+## 3. Instanciación de las tácticas con parámetros
+
+| Táctica | Parámetros definidos | Driver |
+| --- | --- | --- |
+| Concurrency | Partición por identificador de viajero. Consumidores idempotentes mediante la clave de evento de origen. | QA01 |
+| Circuit breaker | Un breaker por proveedor, con estados abierto, semiabierto y cerrado. Reintentos acotados con espera creciente. Los umbrales se calibran en el prototipo. | QA04, QA14 |
+| Monitor y réplicas | Heartbeat cada 10 s, con fallo declarado tras 3 omisiones, es decir unos 30 s. Cumple la detección menor a 1 minuto. | QA04 |
+| Cola de mensajes inválidos | Los eventos que no se pueden parsear ni procesar van a una cola aparte, y no bloquean el flujo. | QA14 |
+
+### Presupuesto de latencia para QA01
+
+QA01 mide desde la generación en la fuente. El intervalo de sondeo cuenta dentro del límite de 5 minutos.
+
+| Tramo | Presupuesto p95 |
+| --- | --- |
+| Detección en la fuente: sondeo de terceros y de correo | 2 min como máximo |
+| Adaptador, broker y Consolidación | 1 min |
+| Entrega al dashboard | 30 s |
+| **Total** | **3,5 min, con 1,5 min de margen** |
+
+## 4. Interfaces
+
+### 4.1.- Canales del broker
+
+| Canal | Productor | Consumidor | Contenido |
+| --- | --- | --- | --- |
+| `ingesta.eventos` | Ingesta de Terceros, Ingesta de Correo | Consolidación | Evento normalizado de reserva. |
+| `reservas.cambios` | Consolidación | Dashboard, y más adelante analítica y recomendación | Cambio ya consolidado de una reserva. |
+| `fuentes.estado` | Ingesta de Terceros, Ingesta de Correo | Dashboard | Fuente operativa, degradada o con reconexión requerida. |
+| `ingesta.invalidos` | Cualquier consumidor | Operación | Eventos descartados, con su motivo. |
+
+### 4.2.- Interfaces sincrónicas
+
+| Interfaz | Proveedor | Consumidor | Operaciones | Driver |
+| --- | --- | --- | --- | --- |
+| **API de Dashboard** | Dashboard, vía Gateway | Web y móvil | Consultar viajes con sus reservas. Consultar el estado de las fuentes. Suscribirse a cambios. Alta, edición y baja manual de reservas. | US01 |
+| **API de Escritura de Reservas** | Consolidación | Dashboard | Registrar, modificar y eliminar una reserva manual. Devuelve el resultado consolidado. | US01 |
+| **Puerto de Proveedor de Viajes** | Adaptador de proveedor | Ingesta de Terceros, núcleo | Consultar novedades desde un cursor. Recibir una notificación del proveedor. Informar su estado. | QA14 |
+| **Puerto de Proveedor de Correo** | Adaptador de correo | Ingesta de Correo, núcleo | Autorizar la conexión. Listar mensajes nuevos desde un cursor. Obtener un mensaje. Informar su estado. | QA15 |
+| **Chequeo de salud** | Todo servicio | Monitor | Operación de vivo y de listo, más heartbeat saliente. | QA04 |
+
+Los dos puertos son contratos neutrales respecto de cualquier proveedor concreto. Eso cumple el concern de tecnologías genéricas y es lo que habilita agregar proveedores sin tocar el núcleo, que se refinará en la iteración 3 con QA10 y QA13.
+
+### 4.3.- Contrato del evento normalizado
+
+Es el contrato más importante de la iteración. Define el lenguaje común entre ingesta y consolidación.
+
+| Campo | Descripción | Uso |
+| --- | --- | --- |
+| Identificador de evento de origen | Clave estable que identifica el evento en la fuente. | Idempotencia y deduplicación. |
+| Tipo de evento | Alta, modificación o cancelación. | `EventoReserva`. |
+| Viajero | Dueño de la reserva. | Partición y autorización. |
+| Origen | Tipo, referencia externa y proveedor. Remitente si es correo. | `OrigenReserva`, y US03 más adelante. |
+| Fecha de generación en la fuente | Momento en que la fuente generó el evento. | Medición de QA01. |
+| Fecha de recepción | Momento en que ingresó al sistema. | Medición de QA01. |
+| Datos de la reserva | Tipo, medio, fechas, destino, código de confirmación y datos específicos. | `Reserva` y especializaciones. |
+
+### 4.4.- Contrato del evento de estado de fuente
+
+| Campo | Descripción |
+| --- | --- |
+| Fuente | Proveedor o cuenta afectada. |
+| Estado | Operativa, degradada o con reconexión requerida. |
+| Desde cuándo | Momento del cambio de estado. |
+
+## 5. Justificación
+
+- **Instanciación.** Cada servicio responde a un driver concreto: aislamiento de fallos para QA04, adaptación de fuentes para QA14 y QA15, un camino rápido y concurrente para QA01 y un único punto de verdad para US01.
+- **Asignación de responsabilidades.** La alta cohesión se logra con un solo dueño por tipo de dato. El bajo acoplamiento se logra porque todo cruce entre servicios pasa por un contrato, sea evento o puerto.
+- **Interfaces.** Los contratos están definidos por operaciones y campos, no por tecnología, como pide C2 y el concern de neutralidad. La definición formal, por ejemplo OpenAPI o AsyncAPI, queda para la sección 6 de `Architecture.md`.
+
+## 6. Supuestos y puntos abiertos
+
+1. **Clave de deduplicación.** Propongo usar viajero, proveedor y código de confirmación, con una heurística de fechas y destino cuando falte el código. Es el punto de mayor riesgo funcional y habría que validarlo con datos reales de correos.
+2. **Asociación de reservas a viajes.** Asumo que se asigna por solapamiento de fechas y destino, o se crea un viaje nuevo. Hay que confirmarlo con el negocio.
+3. **Entrega al cliente.** Dejo definida la suscripción a cambios sin fijar el mecanismo concreto, que se decide en el Paso 6.
+4. **Fuera de esta iteración.** Las reglas de filtros y whitelist, el cifrado y la autorización del acceso al correo, la estrategia de datos a gran escala y el caché quedan para las iteraciones 2 y 3. El diseño actual deja los puntos de enganche: el campo de remitente en el evento y los esquemas separados.
+
+---
+
+# Iteración 1 - Paso 6: Bocetar vistas y registrar decisiones de diseño
+
+## 1. Selección de vistas
+
+Cada vista responde a una pregunta que los drivers de la iteración exigen contestar.
+
+| Vista | Tipo | Por qué se elige | Drivers |
+| --- | --- | --- | --- |
+| **V1. Componentes y conectores** | C&C | Muestra los servicios, el broker, los datos y quién habla con quién. Es la vista principal para razonar sobre latencia y aislamiento de fallos. | US01, QA01, QA04, QA14, QA15 |
+| **V2. Secuencia: de un correo al dashboard** | Comportamiento | Permite verificar el presupuesto de 5 minutos de QA01 tramo por tramo, y ver la idempotencia y la deduplicación. | US01, QA01, QA15 |
+| **V3. Secuencia: falla de un tercero** | Comportamiento | Es la forma más directa de comprobar que el fallo de un proveedor no tira el sistema, como exige QA04. | QA04, QA14 |
+| **V4. Despliegue** | Allocation | La disponibilidad se decide en la asignación a nodos y zonas, no solo en la lógica. | QA04 |
+
+No se incluye una vista de módulos. Los servicios ya son las unidades de módulo en esta etapa, y su descomposición interna pertenece a iteraciones posteriores.
+
+## 2. V1 - Componentes y conectores
+
+```mermaid
+flowchart LR
+    Web["Cliente web"]
+    Movil["Cliente móvil"]
+    GW["API Gateway y balanceador"]
+
+    subgraph Nucleo ["Sistema Trotamundos"]
+        Dash["Servicio Dashboard"]
+        Cons["Servicio Consolidación"]
+        IngT["Servicio Ingesta de Terceros"]
+        IngC["Servicio Ingesta de Correo"]
+        Broker[["Broker de mensajes"]]
+        DatosR[("Datos de reservas")]
+        DatosI[("Datos de integración")]
+        Mon["Monitor de salud"]
+    end
+
+    APIs["APIs de terceros y agencias"]
+    Correo["Proveedores de correo"]
+
+    Web -->|"HTTPS"| GW
+    Movil -->|"HTTPS"| GW
+    GW -->|"API de Dashboard"| Dash
+    Dash -->|"lectura"| DatosR
+    Dash -->|"API de escritura de reservas"| Cons
+    Cons -->|"escritura"| DatosR
+    Cons -->|"publica reservas.cambios"| Broker
+    Broker -->|"reservas.cambios y fuentes.estado"| Dash
+    IngT -->|"publica ingesta.eventos y fuentes.estado"| Broker
+    IngC -->|"publica ingesta.eventos y fuentes.estado"| Broker
+    Broker -->|"ingesta.eventos"| Cons
+    IngT <-->|"puerto de proveedor de viajes"| APIs
+    IngC <-->|"puerto de proveedor de correo"| Correo
+    IngT --> DatosI
+    IngC --> DatosI
+    Mon -.->|"ping echo y heartbeat"| Dash
+    Mon -.-> Cons
+    Mon -.-> IngT
+    Mon -.-> IngC
+    Mon -.-> Broker
+
+    classDef core fill:#0000ff,color:#ffffff
+    classDef actor fill:#808080,color:#ffffff
+    classDef external fill:#ffff00,color:#000000
+    class Dash,Cons,IngT,IngC,Broker,DatosR,DatosI,Mon,GW core
+    class Web,Movil actor
+    class APIs,Correo external
+```
+
+**Convenciones.** Azul indica elementos propios, amarillo sistemas externos y gris clientes. Las líneas punteadas indican monitoreo.
+
+**Puntos clave de lectura:**
+
+- **El camino de lectura no pasa por la ingesta.** Dashboard lee de Datos de reservas y recibe cambios del broker. Si la ingesta cae, el dashboard sigue funcionando.
+- **Un solo camino de escritura.** Todo cambio de reservas pasa por Consolidación, ya venga de una ingesta o de una acción manual.
+- **Los puertos son la frontera con lo externo.** Ahí viven los adaptadores y los circuit breakers.
+
+### Catálogo de elementos
+
+| Elemento | Responsabilidad principal | Interfaces provistas | Interfaces requeridas |
+| --- | --- | --- | --- |
+| API Gateway y balanceador | Entrada única y balanceo | HTTPS para clientes | API de Dashboard |
+| Servicio Dashboard | Consulta y notificación de cambios | API de Dashboard, chequeo de salud | Datos de reservas, API de escritura, canales `reservas.cambios` y `fuentes.estado` |
+| Servicio Consolidación | Único escritor, deduplicación y fusión | API de escritura de reservas, chequeo de salud | Canal `ingesta.eventos`, Datos de reservas, canal `reservas.cambios` |
+| Servicio Ingesta de Terceros | Adaptar APIs de proveedores y agencias | Chequeo de salud | Puerto de proveedor de viajes, Datos de integración, canales `ingesta.eventos` y `fuentes.estado` |
+| Servicio Ingesta de Correo | Adaptar cuentas de correo | Chequeo de salud | Puerto de proveedor de correo, Datos de integración, canales `ingesta.eventos` y `fuentes.estado` |
+| Broker de mensajes | Transporte de eventos | Los 4 canales | N/A |
+| Monitor de salud | Detección de fallos | N/A | Chequeo de salud de todos |
+
+## 3. V2 - Secuencia: de un correo al dashboard
 
 ```mermaid
 sequenceDiagram
+    autonumber
+    participant PC as Proveedor de correo
+    participant IC as Ingesta de Correo
+    participant BR as Broker
+    participant CO as Consolidación
+    participant DR as Datos de reservas
+    participant DA as Dashboard
     participant CL as Cliente
-    participant GW as Puerta de entrada
-    participant QS as Consulta
-    participant CA as Caché
-    participant AL as Almacén de lectura
 
-    CL->>GW: obtenerResumenDashboard con etag
-    alt Límite de tasa superado
-        GW-->>CL: LimiteExcedido con reintentarEn
-    else Dentro del límite
-        GW->>QS: reenviar a una instancia sana
-        QS->>CA: obtener vista del viajero
-        alt Acierto de caché
-            CA-->>QS: vista con etag
-        else Fallo de caché
-            QS->>AL: leerResumen por viajeroId
-            AL-->>QS: vista con etag
-            QS->>CA: guardar con vencimiento corto
-        end
-        alt El etag coincide
-            QS-->>CL: SinCambios
-        else El etag difiere
-            QS-->>CL: ResumenDashboard
-        end
+    Note over PC,IC: Tramo 1. Detección en la fuente, hasta 2 min
+    IC->>PC: Listar mensajes nuevos desde el cursor
+    PC-->>IC: Mensajes nuevos
+    IC->>IC: Identificar correo de viaje y extraer reserva
+    IC->>IC: Armar evento normalizado con fecha de generación
+    IC->>BR: Publicar en ingesta.eventos
+    IC->>IC: Avanzar cursor tras confirmación del broker
+
+    Note over BR,DR: Tramo 2. Procesamiento, hasta 1 min
+    BR->>CO: Entregar evento particionado por viajero
+    CO->>DR: Buscar reserva equivalente por clave de deduplicación
+    alt Reserva existente
+        CO->>DR: Agregar OrigenReserva y EventoReserva
+    else Reserva nueva
+        CO->>DR: Crear Reserva, OrigenReserva y EventoReserva
     end
-    Note over QS,CA: Con versionMinima mayor que la versión en caché se omite la caché y se lee del almacén
+    CO->>BR: Publicar en reservas.cambios
+
+    Note over BR,CL: Tramo 3. Entrega, hasta 30 s
+    BR->>DA: Entregar cambio consolidado
+    DA->>CL: Notificar cambio y registrar fecha de presentación
 ```
 
-### 5.8.- Iteración 2: ingesta y edición manual (vista de secuencia)
+**Qué se verifica con esta vista:**
 
-**Por qué esta vista:** el camino de escritura agrega pasos respecto de la iteración 1 (consolidación, evento, proyección) que consumen parte del presupuesto de QA01 (R6). También muestra cómo la edición manual se ve de inmediato (`proyectarAhora`) y dónde queda el punto de atomicidad pendiente (R5).
+- El **cursor avanza solo después de la confirmación del broker**. Si el servicio falla a mitad de camino, reprocesa y no pierde mensajes. Por eso Consolidación debe ser idempotente.
+- La **deduplicación es un paso explícito** dentro de Consolidación, no de la ingesta.
+- Las **dos marcas de tiempo**, generación en fuente y presentación, permiten medir QA01 de punta a punta, tal como lo prevé `EventoReserva`.
+
+## 4. V3 - Secuencia: falla de un tercero
 
 ```mermaid
 sequenceDiagram
+    autonumber
+    participant PX as Proveedor externo
+    participant IT as Ingesta de Terceros
+    participant BR as Broker
+    participant DA as Dashboard
     participant CL as Cliente
-    participant BU as Buffer
-    participant WI as Escritura ingesta
-    participant WC as Escritura comandos
-    participant AE as Almacén de escritura
-    participant EV as Canal de eventos
-    participant PR as Proyección
-    participant AL as Almacén de lectura
-    participant CA as Caché
 
-    rect rgb(235, 240, 255)
-    Note over BU,CA: Flujo A - ingesta desde proveedores
-    BU-->>WI: entrega ActualizacionReserva
-    WI->>AE: buscar por origen.referenciaExterna
-    WI->>AE: escribirCondicional por versión
-    WI->>EV: publicar ReservaCambiada
-    WI->>BU: confirmar idMensaje
-    EV-->>PR: entrega asíncrona
-    PR->>AL: aplicarSiMasNueva
-    PR->>CA: invalidar clave del viajero
-    Note over PR: Registra fechaPresentacion para medir QA01
-    end
+    IT->>PX: Consultar novedades
+    PX--xIT: Sin respuesta o error
+    IT->>PX: Reintento 1 con espera creciente
+    PX--xIT: Error
+    IT->>PX: Reintento 2
+    PX--xIT: Error
+    Note over IT: Se supera el umbral. El breaker del proveedor pasa a abierto
+    IT->>BR: Publicar en fuentes.estado, fuente degradada
+    BR->>DA: Entregar estado de fuente
+    DA->>CL: Mostrar últimos datos conocidos con aviso de fuente degradada
 
-    rect rgb(240, 255, 240)
-    Note over CL,CA: Flujo B - edición manual del viajero
-    CL->>WC: crearReserva con claveIdempotencia
-    WC->>AE: escribirCondicional por versión
-    WC->>EV: publicar ReservaCambiada
-    WC->>PR: proyectarAhora
-    PR->>AL: aplicarSiMasNueva
-    PR->>CA: invalidar clave del viajero
-    PR-->>WC: proyectado
-    WC-->>CL: Reserva y versión
-    Note over WC,PR: Si proyectarAhora falla se responde con actualizacionPendiente y sigue la vía asíncrona
-    end
-
-    Note over WI,EV: R5 - la escritura y la publicación del evento deben ser atómicas
+    Note over IT,PX: El resto de proveedores y el dashboard siguen operando
+    IT->>PX: Sonda en estado semiabierto tras el tiempo de espera
+    PX-->>IT: Respuesta correcta
+    Note over IT: El breaker vuelve a cerrado
+    IT->>BR: Publicar en fuentes.estado, fuente operativa
+    BR->>DA: Entregar estado de fuente
+    DA->>CL: Quitar el aviso
 ```
 
-### 5.9.- Iteración 2: grupos de instancias y particionado de datos (vista de asignación)
+**Qué se verifica con esta vista:**
 
-**Por qué esta vista:** la escalabilidad (QA05, QA06, QA07) se razona sobre cómo se despliegan los elementos y cómo se reparten los datos. Una vista de asignación muestra los grupos de instancias, su señal de autoescalado y las particiones, sin atarse a una tecnología (CN1).
+- El fallo queda **contenido en el breaker de ese proveedor**. Los otros proveedores, la consolidación y el dashboard no se enteran más que por el evento de estado.
+- El usuario recibe **el aviso exigido por QA04** y no un error.
+- La recuperación es **automática** mediante la sonda semiabierta.
+
+## 5. V4 - Despliegue
 
 ```mermaid
 flowchart TB
-    GW["Puerta de entrada<br/>balanceador y límite de tasa"]
+    Usuarios["Usuarios web y móvil"]
+    LB["Balanceador de entrada"]
 
-    subgraph GRUPOS ["Grupos de instancias sin estado con autoescalado"]
-        GQ["Grupo Consulta"]
-        GC["Grupo Escritura comandos"]
-        GI["Grupo Escritura ingesta"]
-        GP["Grupo Proyección"]
+    subgraph ZonaA ["Zona A"]
+        GWA["Gateway réplica 1"]
+        DashA["Dashboard réplica 1"]
+        ConsA["Consolidación réplica 1"]
+        IngTA["Ingesta Terceros réplica 1"]
+        IngCA["Ingesta Correo réplica 1"]
+        BrokerA[["Broker nodo 1"]]
+        DBP[("Base de datos primaria")]
     end
 
-    subgraph DATOS ["Almacenes particionados por viajeroId"]
-        P1["Partición 1 con réplicas"]
-        P2["Partición 2 con réplicas"]
-        PN["Partición N con réplicas"]
+    subgraph ZonaB ["Zona B"]
+        GWB["Gateway réplica 2"]
+        DashB["Dashboard réplica 2"]
+        ConsB["Consolidación réplica 2"]
+        IngTB["Ingesta Terceros réplica 2"]
+        IngCB["Ingesta Correo réplica 2"]
+        BrokerB[["Broker nodo 2"]]
+        DBR[("Base de datos réplica")]
     end
 
-    GW --> GQ
-    GW --> GC
-    GQ --> DATOS
-    GC --> DATOS
-    GI --> DATOS
-    GP --> DATOS
+    MonitorEx["Monitor de salud y orquestador"]
+
+    Usuarios --> LB
+    LB --> GWA
+    LB --> GWB
+    DBP -->|"replicación"| DBR
+    BrokerA <-->|"clúster"| BrokerB
+    MonitorEx -.->|"supervisa y reinicia"| ZonaA
+    MonitorEx -.->|"supervisa y reinicia"| ZonaB
 
     classDef core fill:#0000ff,color:#ffffff
-    classDef datos fill:#6f8fff,color:#000000
-    class GW,GQ,GC,GI,GP core
-    class P1,P2,PN datos
+    class GWA,GWB,DashA,DashB,ConsA,ConsB,IngTA,IngTB,IngCA,IngCB,BrokerA,BrokerB,DBP,DBR,MonitorEx,LB core
 ```
 
-| Grupo | Unidad de escalado | Señal de autoescalado | Mínimo de capacidad |
+**Decisiones visibles en esta vista:**
+
+- **Dos zonas con réplicas activas** de cada servicio. La pérdida de una zona no interrumpe el servicio.
+- **Broker en clúster y base con réplica**, para que no sean puntos únicos de falla.
+- **Monitor fuera de los servicios que supervisa**, y con capacidad de reinicio automático.
+- **Supuesto:** hay 2 zonas de disponibilidad. Esto se confirmará con la elección de infraestructura.
+
+## 6. Registro de decisiones MADR
+
+Estas decisiones se registran con estado **Propuesta** hasta que las confirmes. Se ubicarán en la sección 7 de `Architecture.md`, y las vistas anteriores en la sección 5.
+
+### ADR-001: Estilo publish-subscribe con broker de mensajes para la ingesta
+
+- **Estado:** Propuesta
+- **Contexto y problema:** Las fuentes externas son lentas y poco confiables, y el dashboard debe mantenerse disponible y actualizado en menos de 5 minutos. ¿Cómo comunicamos ingesta, consolidación y dashboard?
+- **Drivers de decisión:** QA01, QA04, QA14, QA15 y el concern de neutralidad tecnológica.
+- **Opciones consideradas:**
+  1. Publish-subscribe con broker.
+  2. Request-response síncrono entre servicios.
+  3. Sondeo periódico del backend de lectura sobre las fuentes.
+- **Resultado de la decisión:** Opción 1, porque desacopla los productores de los consumidores y aísla fallos.
+- **Consecuencias:**
+  - Positivas: la caída de un tercero no tumba el sistema, se procesa en paralelo, y el historial de `EventoReserva` encaja con el modelo de dominio.
+  - Negativas: hay consistencia eventual y el broker pasa a ser un componente crítico que debe ser redundante.
+- **Pros y contras de las alternativas:**
+  - Opción 2: es más simple, pero acopla la disponibilidad de cada servicio a la del siguiente y propaga la lentitud.
+  - Opción 3: es simple, pero el dashboard queda atado a la latencia de las fuentes y no escala.
+
+### ADR-002: Arquitectura service-based con 4 servicios de grano grueso
+
+- **Estado:** Propuesta
+- **Contexto y problema:** Se necesita aislar fallos y escalar por separado la ingesta y la lectura, con un equipo y prototipo acotados.
+- **Drivers de decisión:** QA04, QA01 y las restricciones de tamaño de equipo.
+- **Opciones consideradas:**
+  1. Service-based con 4 servicios.
+  2. Monolito modular.
+  3. Microservicios de grano fino.
+- **Resultado de la decisión:** Opción 1, con los servicios Dashboard, Consolidación, Ingesta de Terceros e Ingesta de Correo.
+- **Consecuencias:**
+  - Positivas: aislamiento donde importa y escalado independiente de la ingesta y la lectura.
+  - Negativas: más piezas y un despliegue más complejo que un monolito.
+- **Pros y contras de las alternativas:**
+  - Opción 2: es la más simple de operar, pero un pico o error de parseo en la ingesta afecta a todo.
+  - Opción 3: máximo aislamiento, pero con un costo operativo desproporcionado para el prototipo.
+
+### ADR-003: Puertos de proveedor con adaptadores y modelo canónico
+
+- **Estado:** Propuesta
+- **Contexto y problema:** Los proveedores de viajes y de correo tienen formatos y protocolos distintos, y no queremos depender de ninguno.
+- **Drivers de decisión:** QA14, QA15 y el concern de neutralidad. Prepara también QA10 y QA13.
+- **Opciones consideradas:**
+  1. Un puerto por tipo de fuente, con un adaptador por proveedor y un evento normalizado.
+  2. Integración directa en la lógica de negocio.
+  3. Conectores genéricos configurables, sin adaptador propio.
+- **Resultado de la decisión:** Opción 1.
+- **Consecuencias:**
+  - Positivas: agregar un proveedor no toca el núcleo, y el contrato del evento fija el lenguaje común.
+  - Negativas: hay que mantener un adaptador por proveedor, y el modelo canónico puede quedarse corto para casos raros.
+- **Pros y contras de las alternativas:**
+  - Opción 2: rápida al inicio, pero acopla el núcleo a cada proveedor.
+  - Opción 3: reduce código, pero los formatos reales rara vez se cubren solo con configuración.
+
+### ADR-004: Consolidación como único escritor de reservas, con consumidores idempotentes
+
+- **Estado:** Propuesta
+- **Contexto y problema:** US01 exige un único punto de verdad que no duplique reservas de fuentes distintas, y QA01 pide procesar en paralelo.
+- **Drivers de decisión:** US01, QA01.
+- **Opciones consideradas:**
+  1. Un único servicio escritor, con consumidores competidores particionados por viajero e idempotentes.
+  2. Cada ingesta escribe directamente en la base de reservas.
+  3. Un único consumidor secuencial.
+- **Resultado de la decisión:** Opción 1.
+- **Consecuencias:**
+  - Positivas: la deduplicación está en un solo lugar, el orden por reserva se preserva con la partición, y el reproceso es seguro.
+  - Negativas: las escrituras manuales dependen de la disponibilidad de Consolidación, mitigada con réplicas. La clave de deduplicación es un riesgo funcional abierto.
+- **Pros y contras de las alternativas:**
+  - Opción 2: elimina un salto, pero produce condiciones de carrera y lógica de deduplicación repetida.
+  - Opción 3: es la más simple, pero limita el rendimiento y no escala para la iteración 2.
+
+### ADR-005: Circuit breaker por proveedor con reintentos acotados
+
+- **Estado:** Propuesta
+- **Contexto y problema:** Un proveedor caído no debe degradar al sistema ni a los otros proveedores, y el usuario debe ser avisado.
+- **Drivers de decisión:** QA04, QA14.
+- **Opciones consideradas:**
+  1. Breaker por proveedor con reintentos acotados y evento de estado de fuente.
+  2. Reintentos sin límite.
+  3. Fallar y propagar el error al usuario.
+- **Resultado de la decisión:** Opción 1.
+- **Consecuencias:**
+  - Positivas: el fallo queda contenido, la recuperación es automática y el dashboard muestra datos con aviso.
+  - Negativas: los umbrales y timeouts requieren calibración, y un valor mal elegido causa falsos positivos.
+- **Pros y contras de las alternativas:**
+  - Opción 2: puede amplificar la falla y cargar a un proveedor ya degradado.
+  - Opción 3: viola QA04, que pide solo avisar al usuario.
+
+### ADR-006: Monitor de salud y réplicas activas en dos zonas
+
+- **Estado:** Propuesta
+- **Contexto y problema:** Se permite un máximo de 5 minutos de caída al mes, y la detección debe ser menor a 1 minuto.
+- **Drivers de decisión:** QA04.
+- **Opciones consideradas:**
+  1. Monitor externo con ping/echo y heartbeat, más réplicas activas en dos zonas.
+  2. Réplicas frías que se encienden al fallar.
+  3. Recuperación manual con alertas.
+- **Resultado de la decisión:** Opción 1, con heartbeat cada 10 s y fallo declarado tras 3 omisiones.
+- **Consecuencias:**
+  - Positivas: detección en unos 30 s y conmutación sin interrupción visible.
+  - Negativas: mayor costo de infraestructura. Un fallo simultáneo en ambas zonas queda fuera de cobertura.
+- **Pros y contras de las alternativas:**
+  - Opción 2: es más barata, pero la recuperación es demasiado lenta para el presupuesto de QA04.
+  - Opción 3: no puede cumplir la detección menor a 1 minuto de forma confiable.
+
+### ADR-007: Infraestructura por categorías genéricas
+
+- **Estado:** Propuesta
+- **Contexto y problema:** Se necesita infraestructura de ejecución, mensajería y datos sin atar el diseño a un producto específico.
+- **Drivers de decisión:** Concern de neutralidad tecnológica, C2 y QA04.
+- **Opciones consideradas:**
+  1. Fijar solo las categorías: broker de mensajes, plataforma de contenedores con orquestación y base relacional gestionada con réplica.
+  2. Fijar productos concretos desde ahora.
+- **Resultado de la decisión:** Opción 1. La elección del producto se registrará en un MADR posterior, cuando se evalúe costo y soporte.
+- **Consecuencias:**
+  - Positivas: mantiene abiertas las opciones y respeta el concern.
+  - Negativas: quedan decisiones de producto pendientes antes de construir el prototipo.
+- **Pros y contras de las alternativas:**
+  - Opción 2: acelera el arranque, pero crea dependencias tempranas sin evidencia.
+
+## 7. Trazabilidad entre decisiones y drivers
+
+| Decisión | US01 | QA01 | QA04 | QA14 | QA15 |
+| --- | --- | --- | --- | --- | --- |
+| ADR-001 Publish-subscribe | | X | X | X | X |
+| ADR-002 Service-based | X | X | X | | |
+| ADR-003 Puertos y adaptadores | X | | | X | X |
+| ADR-004 Único escritor | X | X | | | |
+| ADR-005 Circuit breaker | | | X | X | |
+| ADR-006 Monitor y réplicas | | | X | | |
+| ADR-007 Infraestructura genérica | | | X | | |
+
+## 8. Supuestos y puntos abiertos
+
+1. **Zonas de disponibilidad.** Los diagramas asumen 2 zonas. Si el entorno solo ofrece una, QA04 queda en riesgo.
+2. **Mecanismo de entrega al cliente.** V2 indica "notificar cambio" sin fijar el medio, porque depende de la tecnología de los clientes.
+3. **Valores de umbrales.** Los intervalos de heartbeat, reintentos y breakers son punto de partida, y se calibrarán con el prototipo.
+
+---
+
+# Iteración 1 - Paso 7: Análisis del diseño y revisión de la meta
+
+## 1. Análisis por driver
+
+Cada driver se evalúa contra las decisiones tomadas. Uso tres estados: **Completo** (el diseño lo satisface en esta etapa), **Parcial** (la estructura está, pero queda trabajo o un riesgo abierto) y **No abordado**.
+
+| Driver | Estado | Cómo lo satisface el diseño | Lo que queda abierto |
 | --- | --- | --- | --- |
-| Consulta | Instancias del servicio | Tasa de solicitudes y p95 de lectura, sostenidos en el tiempo | Margen para absorber el tiempo de arranque |
-| Escritura comandos | Instancias del servicio | Tasa de comandos | Bajo, porque son pocas escrituras |
-| Escritura ingesta | Instancias, hasta el número de particiones del buffer | Retraso del buffer | Cubre el régimen normal |
-| Proyección | Instancias, hasta el número de particiones del canal | Retraso del canal de eventos | Cubre el régimen normal |
+| **US01 Dashboard** | **Parcial** | Único escritor (ADR-004), reserva consolidada con múltiples orígenes, API de lectura y de escritura manual, camino de lectura aislado de la ingesta. | Los clientes web y móvil no están descompuestos, solo existen como consumidores del Gateway. La regla exacta de deduplicación está sin validar. |
+| **QA01 Presentar updates** | **Parcial** | Presupuesto de 3,5 min con 1,5 min de margen sobre el tope de 5. Concurrencia, idempotencia y las marcas de tiempo para medir el cumplimiento. | El tramo de sondeo de correo no escala como está planteado (ver riesgo R1). |
+| **QA04 Inactividad no planificada** | **Parcial** | Réplicas en dos zonas, monitor con detección en unos 30 s, breaker por proveedor, broker y base con alta disponibilidad. | Quedan puntos únicos de falla y el presupuesto de caída no está calculado (ver R2 y R3). |
+| **QA14 APIs estándar** | **Completo para la iteración** | Puerto de proveedor, adaptadores y evento normalizado. El breaker acota los fallos de terceros. La cola de inválidos aísla lo no parseable. | La medición de status 2xx en el 90% requiere instrumentación, que se define al construir. |
+| **QA15 Proveedores de correo** | **Parcial** | Puerto de correo neutral respecto del proveedor, con cursor y estado de fuente. | La autenticación y autorización de la cuenta, y la conexión permanente, dependen de la seguridad de la iteración 3 (QA08). |
 
-Las reglas de autoescalado usan umbrales sostenidos y no instantáneos (Bass, cap. 17). Como los picos son impredecibles, se **complementan** con límite de tasa, caché y colas acotadas (ADR-08).
+**Avance de la ronda.** La iteración abordó 5 de los 24 drivers, 1 de 8 historias y 4 de 16 escenarios. Son los de mayor riesgo, así que el avance en riesgo es mayor que el porcentaje de cantidad.
 
-## 2. Actualización de la sección 6 (Interfaces)
+## 2. Análisis de tácticas de disponibilidad
 
-Las interfaces definidas en el Paso 5 se incorporan al documento con esta numeración. El contenido de cada una es el del Paso 5.
+Siguiendo el cuestionario por tácticas de Bass, estas son las tácticas de disponibilidad frente al diseño actual.
 
-| Sección | Interfaz | Entre | Estado |
+| Táctica | ¿Soportada? | Dónde | Riesgo |
 | --- | --- | --- | --- |
-| 6.1 a 6.4 | Puerto ProveedorExterno, `ActualizacionReserva`, `EstadoProveedor` y buffer | Conexión APIs ↔ Lógica | Iteración 1. El buffer se amplía con `consultarCarga` y el error `CapacidadAgotada`. |
-| **6.5** | **API del Dashboard** (`obtenerResumenDashboard`, `obtenerViaje`, `crearReserva`, `actualizarReserva`, `eliminarReserva`) | Clientes ↔ Puerta de entrada | Nueva |
-| **6.6** | **Interfaces internas** (`ReservaCambiada`, `proyectarAhora`, `invalidar`) | Escritura, Proyección, Caché | Nueva |
-| **6.7** | **Puertos de almacenamiento** (`PuertoAlmacenEscritura`, `PuertoAlmacenLectura`, `PuertoCuentas`, `PuertoCache`) | Servicios ↔ almacenes | Nueva |
+| Ping/echo y heartbeat | Sí | Monitor de salud, ADR-006 | Bajo |
+| Redundant spare, activa | Sí | Réplicas en dos zonas | Medio, ver R3 |
+| Circuit breaker y reintentos acotados | Sí | Adaptadores, ADR-005 | Bajo, requiere calibrar |
+| Graceful degradation | Sí | Dashboard muestra últimos datos con aviso | Bajo |
+| Retry | Sí | Reproceso del cursor tras fallo | Bajo, depende de idempotencia |
+| Shadow y state resynchronization al reintroducir | **Parcial** | No se definió cómo se reincorpora una réplica | Medio |
+| Rollback o transacciones | **No** | No se definió consistencia entre la escritura en base y la publicación en el broker | **Alto**, ver R4 |
+| Monitor redundante | **No** | El monitor es único | Medio, ver R2 |
 
-**6.8.- Interfaces pendientes (actualizada)**
+## 3. Riesgos, puntos de sensibilidad y trade-offs
 
-| Interfaz | Se define en |
+### Riesgos que cambian el plan
+
+| ID | Riesgo | Impacto | Gravedad |
+| --- | --- | --- | --- |
+| **R1** | **El sondeo de correo no escala.** Con 2 M de usuarios activos y un sondeo cada 2 minutos, serían unas 16.700 consultas por segundo hacia los proveedores de correo, solo para detectar mensajes. A esa tasa los proveedores aplican límites de uso. | Compromete QA01 y la operación a escala. Hoy el presupuesto de 2 min de detección lo ignora. | **Alta** |
+| **R2** | **El monitor de salud es un punto único de falla.** Si cae, la detección en menos de 1 minuto deja de cumplirse. | QA04 | Media |
+| **R3** | **El presupuesto de QA04 es muy ajustado.** 5 minutos al mes equivalen a una disponibilidad de unos 99,988%. Un solo failover de base de datos de 2 minutos consume el 40% del mes. El diseño no cuantifica el tiempo de failover de la base, del broker ni del Gateway. | QA04 | **Alta** |
+| **R4** | **Consistencia entre base y broker.** Consolidación escribe en la base y luego publica el cambio. Si falla entre ambos pasos, el dashboard no se entera del cambio o se publica algo que no se guardó. | US01, QA01 | **Alta** |
+| **R5** | **Clave de deduplicación sin validar.** Una mala heurística genera duplicados o fusiones erróneas, y ambos errores son visibles para el usuario. | US01 | Media |
+
+### Puntos de sensibilidad
+
+- **Intervalo de sondeo y partición del broker.** Pequeños cambios en estos valores mueven directamente la latencia de QA01.
+- **Umbrales de los breakers.** Un valor demasiado bajo genera falsos positivos y baja la disponibilidad percibida. Uno demasiado alto retrasa el aviso al usuario.
+
+### Trade-offs asumidos
+
+| Decisión | Se gana | Se paga |
+| --- | --- | --- |
+| Publish-subscribe | Aislamiento y paralelismo | Consistencia eventual y broker crítico |
+| Único escritor | Deduplicación en un solo lugar | Las escrituras manuales dependen de Consolidación |
+| Service-based | Menor costo operativo que microservicios | Menos aislamiento fino que microservicios |
+| Réplicas activas en dos zonas | Conmutación sin interrupción | Mayor costo de infraestructura |
+
+## 4. Respuestas a las preguntas del paso
+
+**¿Cuánto diseño llevamos hecho?** Tenemos la estructura de alto nivel y los contratos principales. Falta la estrategia de datos a gran escala, la seguridad, la extensibilidad y las funcionalidades secundarias.
+
+**¿Se cumplió la meta?** **Sí, en lo estructural.** La meta era estructurar el sistema, fijar su estilo, su descomposición, el flujo de consolidación y la ingesta desacoplada. Todo eso está definido, visualizado y registrado. Ningún driver quedó sin abordar, pero **4 de 5 quedaron parciales** por razones concretas que figuran arriba. Eso es esperable en una primera iteración, y ninguno de los vacíos invalida la estructura elegida.
+
+**¿Hace falta otra iteración?** **Sí, pero no repetir la 1.** Propongo cerrar la iteración 1 y pasar a la 2 con ajustes al plan, en lugar de agregar una iteración 1b. Los riesgos encontrados caben en las iteraciones previstas.
+
+## 5. Ajustes propuestos al plan de iteraciones
+
+| Riesgo | Dónde se resuelve | Cambio al `IterationPlan.md` |
+| --- | --- | --- |
+| R1 Sondeo de correo a escala | **Iteración 2** | Agregar al alcance: estrategia de detección que escale, con notificaciones push donde el proveedor las ofrezca y frecuencia de sondeo adaptativa según actividad. Se vincula con QA06 y QA07. |
+| R3 Presupuesto de QA04 | **Iteración 2** | Agregar el cálculo del presupuesto de caída y los tiempos de failover de base, broker y Gateway. Justifica las decisiones de datos y de balanceo. |
+| R4 Consistencia base y broker | **Iteración 2** | Agregar al alcance de datos un mecanismo que haga atómicas la escritura y la publicación. Es parte de la estrategia de datos. |
+| R2 Monitor único | **Iteración 2** | Agregar redundancia del monitor. Es un cambio menor. |
+| R5 Deduplicación | **Iteración 3** | Ya está en su alcance, con US04. Validar la clave con datos reales de correos. |
+| QA15, autenticación del correo | **Iteración 3** | Sin cambio. Ya está en su alcance, con QA08. |
+| Descomposición de clientes | **Iteración 5** | Sin cambio. |
+
+## 6. Estado del tablero de diseño
+
+| Not Yet Addressed | Partially Addressed | Completely Addressed |
+| --- | --- | --- |
+| US02, US03, US04, US05, US06, US07, US08 | **US01, QA01, QA04, QA15** | **QA14** |
+| QA02, QA03, QA05, QA06, QA07, QA08, QA09, QA10, QA11, QA12, QA13, QA16 | | |
+
+## 7. Producto de la iteración
+
+| Entregable | Ubicación prevista |
 | --- | --- |
-| Credenciales y autorización del acceso al correo y de los clientes | Iteración 3 |
-| Servicio remoto de agencia (incidencias) | Iteración 4 |
-| API interna de analítica | Iteración 4 |
-| Redes sociales | Iteración 4 |
-| Vistas de itinerarios compartidos en el modelo de lectura | Iteración 4 |
-
-## 3. Actualización de la sección 7 (Decisiones de diseño)
-
-### 7.1.- Registro de ADRs (actualizado)
-
-| ADR | Decisión | Estado | Drivers | Origen |
-| --- | --- | --- | --- | --- |
-| ADR-01 | Uso del estilo Publisher-Subscriber | Aceptada | QA01, QA04 | Grupo |
-| ADR-02 | Uso de Ports & Adapters para obtener información de terceros | Aceptada | QA14, QA15, QA04 | Grupo |
-| ADR-03 | Normalizar las entradas de proveedores dentro del middleware | Aceptada | QA14, QA15, US02, US04 | Grupo |
-| ADR-04 | Circuit breaker por proveedor con reintentos acotados | Aceptada | QA04, QA14 | LLM, adaptada por el grupo |
-| ADR-05 | Servicios de grano grueso sin estado con balanceador y autoescalado | Propuesta | QA06, QA07, QA02, QA04 | LLM |
-| ADR-06 | CQRS con modelo de lectura materializado y particionado por viajero | Propuesta | QA02, QA03, QA05, QA06 | LLM |
-| ADR-07 | Caché de lectura del Dashboard con invalidación por evento | Propuesta | QA02, QA03, QA06 | LLM |
-| ADR-08 | Limitar la respuesta a eventos: límite de tasa, colas acotadas, contrapresión y prioridad | Propuesta | QA07, QA06, QA04 | LLM |
-| ADR-09 | Escritora única del agregado Reserva con dos perfiles y canal de eventos de dominio separado | Propuesta | QA06, QA07, QA01 | LLM |
-
-Los ADRs quedan en estado **Propuesta** hasta que el grupo los revise y los pase a **Aceptada**.
-
-### 7.5.- Iteración 2: conceptos de diseño seleccionados
-
-Objetivo: escalabilidad y rendimiento del núcleo. Drivers: QA05, QA06, QA07, QA02, QA03.
-
-| Concepto de diseño | Tipo | Drivers | Alternativas descartadas | ADR |
-| --- | --- | --- | --- | --- |
-| Service-Based, servicios de grano grueso sin estado | Estilo arquitectónico (overlay) | QA06, QA07, QA02 | Monolito modular, microservicios finos | ADR-05 |
-| CQRS con modelo de lectura materializado | Estilo arquitectónico (overlay) | QA02, QA03, QA05, QA06 | Modelo único de lectura y escritura, Event Sourcing completo | ADR-06 |
-| Caché de lectura (*maintain multiple copies of data*) | Táctica de performance | QA02, QA03, QA06 | Solo modelo de lectura, solo réplicas de lectura | ADR-07 |
-| Limitar respuesta a eventos, colas acotadas y priorización | Táctica de performance | QA07, QA06, QA04 | Solo autoescalado reactivo, colas sin límite | ADR-08 |
-
-La justificación y los trade-offs de cada concepto están en los ADRs de la sección 7.6.
-
-### 7.6.- Iteración 2: ADRs en formato MADR
-
-#### ADR-05: Servicios de grano grueso sin estado con balanceador y autoescalado
-
-- **Estado:** Propuesta
-- **Fecha:** 2026-10-25
-- **Drivers:** QA06, QA07, QA02, QA04
-
-**Contexto y planteamiento del problema.** Lógica Trotamundos es una caja sin descomponer. El sistema debe sostener 500 req/s en régimen y 2500 req/s en picos, con una carga dominada por lecturas. Hay que decidir cómo partir la lógica para escalar solo lo que lo necesita, con un equipo y un plazo de prototipo.
-
-**Factores de decisión**
-
-- Escalar lectura, escritura y consolidación de forma independiente.
-- Recuperación rápida ante la caída de una instancia (QA04).
-- Complejidad operativa acotada para el equipo.
-- Neutralidad tecnológica (CN1).
-
-**Opciones consideradas**
-
-1. Monolito modular escalado como unidad.
-2. Microservicios finos.
-3. Servicios de grano grueso sin estado (Consulta, Escritura, Proyección) detrás de un balanceador con autoescalado.
-
-**Resultado de la decisión.** Se elige la opción 3. Es la que permite escalar la lectura de forma independiente sin asumir el costo operativo de la opción 2.
-
-**Consecuencias**
-
-- Positivas: escala selectiva (*maintain multiple copies of computations*). Sin estado, cualquier instancia atiende cualquier pedido y se reemplaza sin pérdida.
-- Negativas: más piezas que desplegar y monitorear que un monolito, y contratos entre servicios que mantener.
-
-**Confirmación.** Una prueba de carga debe mostrar que Consulta escala sin escalar Escritura, y que reemplazar una instancia no interrumpe el servicio.
-
-**Pros y contras de las opciones**
-
-- Opción 1: la más simple, pero escala todo junto y la lectura quedaría sobredimensionada junto con la escritura.
-- Opción 2: máxima independencia, pero la sobrecarga de red, despliegue y observabilidad no se justifica en un prototipo.
-- Opción 3: equilibrio entre ambas.
-
-#### ADR-06: CQRS con modelo de lectura materializado y particionado por viajero
-
-- **Estado:** Propuesta
-- **Fecha:** 2026-10-25
-- **Drivers:** QA02, QA03, QA05, QA06
-
-**Contexto y planteamiento del problema.** El Dashboard agrega reservas, orígenes y eventos de un viaje. Si la lectura consulta el mismo modelo que escribe la consolidación, compite con ella y acumula tiempo bloqueado. Además, hay que sostener 15 M de cuentas con 300 ms en el p95.
-
-**Factores de decisión**
-
-- Lecturas rápidas y aisladas de las escrituras (800 ms en el p95).
-- Todas las operaciones son por viajero.
-- El orden por viajero del buffer (sección 6.4).
-- Complejidad acotada.
-
-**Opciones consideradas**
-
-1. Un único modelo de datos para leer y escribir.
-2. Event Sourcing completo.
-3. CQRS con modelo de lectura materializado, ambos particionados por `viajeroId`.
-
-**Resultado de la decisión.** Se elige la opción 3. La lectura pasa a ser una consulta por clave sobre una vista ya armada. La clave `viajeroId` reparte los datos sin consultas entre particiones.
-
-**Consecuencias**
-
-- Positivas: lectura sin joins ni agregaciones en línea. Escala independiente de lectura y escritura. Partición natural para QA05.
-- Negativas: **consistencia eventual**. El modelo de lectura se actualiza después de la escritura y consume parte del presupuesto de QA01 (R2, R6). La edición manual se mitiga con `proyectarAhora` y `versionMinima`.
-
-**Confirmación.** El p95 de lectura del Dashboard no supera 800 ms con 500 req/s. Tras una edición manual, la lectura con `versionMinima` nunca devuelve una versión anterior.
-
-**Pros y contras de las opciones**
-
-- Opción 1: simple y consistente, pero las lecturas compiten con las escrituras.
-- Opción 2: historial completo, pero con complejidad innecesaria, porque `EventoReserva` ya cubre el historial necesario.
-- Opción 3: lectura rápida a cambio de consistencia eventual.
-
-#### ADR-07: Caché de lectura del Dashboard con invalidación por evento
-
-- **Estado:** Propuesta
-- **Fecha:** 2026-10-25
-- **Drivers:** QA02, QA03, QA06
-
-**Contexto y planteamiento del problema.** Aun con modelo de lectura, cada consulta llegaría al almacén. Con 90 % de lecturas (H4), una caché reduce la carga y la latencia, y ayuda al primer contenido móvil.
-
-**Factores de decisión**
-
-- Latencia del primer despliegue móvil (1.4 s).
-- Carga sobre el almacén de lectura en picos.
-- Obsolescencia acotada.
-
-**Opciones consideradas**
-
-1. Sin caché.
-2. Réplicas de lectura como única estrategia.
-3. Caché de lectura con vencimiento corto, invalidada por la Proyección, y respuesta condicional (`etag`).
-
-**Resultado de la decisión.** Se elige la opción 3 (*maintain multiple copies of data*). Las réplicas suben capacidad, pero no bajan latencia ni evitan transferir datos sin cambios.
-
-**Consecuencias**
-
-- Positivas: menor latencia y menor carga sobre el almacén. `SinCambios` ahorra transferencia.
-- Negativas: posible obsolescencia hasta la invalidación o el vencimiento. Un componente más que dimensionar.
-
-**Confirmación.** Se mide la tasa de aciertos contra la hipótesis de 80 % (H4) y que el valor servido nunca sea más viejo que el vencimiento configurado.
-
-**Pros y contras de las opciones**
-
-- Opción 1: sin riesgo de obsolescencia, pero toda la carga llega al almacén.
-- Opción 2: aumenta capacidad, pero no resuelve la latencia ni QA03.
-- Opción 3: mejor latencia a cambio de gestionar la invalidación.
-
-#### ADR-08: Limitar la respuesta a eventos con límite de tasa, colas acotadas, contrapresión y prioridad
-
-- **Estado:** Propuesta
-- **Fecha:** 2026-10-25
-- **Drivers:** QA07, QA06, QA04
-
-**Contexto y planteamiento del problema.** Los picos llegan hasta 5 veces el promedio ante interrupciones de viaje y no son predecibles. El autoescalado tarda minutos en reaccionar. Hay que degradar de forma controlada sin perder actualizaciones.
-
-**Factores de decisión**
-
-- Proteger la lectura interactiva durante los picos.
-- No perder `ActualizacionReserva`.
-- Evitar colas sin límite.
-
-**Opciones consideradas**
-
-1. Solo autoescalado reactivo.
-2. Colas sin límite.
-3. Límite de tasa en la entrada, colas acotadas, contrapresión sobre el publisher y prioridad (lectura, luego comandos, luego el resto).
-
-**Resultado de la decisión.** Se elige la opción 3 (*limit event response*, *bound queue sizes*, *prioritize events*). En el buffer, `ActualizacionReserva` nunca se descarta: ante saturación se devuelve `CapacidadAgotada` y el Planificador espacia las consultas de menor prioridad. `EstadoProveedor` se coalesce, porque solo vale el último estado.
-
-**Consecuencias**
-
-- Positivas: el pico no degrada el Dashboard. La ingesta es *pull*, así que se puede frenar sin pérdida de datos.
-- Negativas: algunas cuentas se consultan con menor frecuencia durante la saturación (R7, impacto en QA01). Los umbrales mal calibrados rechazan usuarios sin necesidad.
-
-**Confirmación.** En una prueba de 2500 req/s, el p95 de lectura interactiva se mantiene en el objetivo, los rechazos ocurren solo sobre el umbral y no se pierde ninguna `ActualizacionReserva`.
-
-**Pros y contras de las opciones**
-
-- Opción 1: simple, pero reacciona tarde ante picos impredecibles.
-- Opción 2: no pierde mensajes, pero oculta la saturación y consume memoria sin control.
-- Opción 3: degradación controlada a cambio de calibrar umbrales.
-
-#### ADR-09: Escritora única del agregado Reserva con dos perfiles y canal de eventos de dominio separado
-
-- **Estado:** Propuesta
-- **Fecha:** 2026-10-25
-- **Drivers:** QA06, QA07, QA01
-
-**Contexto y planteamiento del problema.** La reserva puede modificarse desde la ingesta (proveedores, correo) y desde las ediciones manuales de US01. Si dos servicios escriben el mismo agregado, hay conflictos y reglas de deduplicación duplicadas. Además, un pico de ingesta no debe retrasar la proyección.
-
-**Factores de decisión**
-
-- Una sola lógica de consolidación y deduplicación (H3).
-- Escalar ingesta y comandos por señales distintas.
-- Aislar fallas y picos entre el buffer de ingesta y la proyección.
-
-**Opciones consideradas**
-
-1. Un servicio de comandos separado del de ingesta.
-2. Una escritora única con dos perfiles de despliegue, y una sola vía de eventos compartida con el buffer.
-3. Una escritora única con dos perfiles y un canal de eventos de dominio separado.
-
-**Resultado de la decisión.** Se elige la opción 3. Los dos perfiles comparten código y reglas, pero se despliegan y escalan como grupos distintos. El canal de eventos es otra instancia de la misma interfaz genérica del buffer (6.4).
-
-**Consecuencias**
-
-- Positivas: una sola lógica de consolidación. Escalado independiente. Un pico de ingesta no retrasa la proyección.
-- Negativas: otro canal que operar y monitorear. **R5:** escribir y publicar el evento deben ser atómicos, o el modelo de lectura queda desactualizado.
-
-**Confirmación.** Ningún otro servicio escribe el agregado `Reserva`. La reentrega del mismo `idMensaje` no duplica la reserva. La proyección es idempotente por versión.
-
-**Pros y contras de las opciones**
-
-- Opción 1: separación clara, pero duplica las reglas de consolidación.
-- Opción 2: menos piezas, pero acopla la proyección a los picos de ingesta.
-- Opción 3: más aislamiento a cambio de un canal más.
-
-### 7.4.- Riesgos, hipótesis y puntos abiertos (agregados en esta iteración)
-
-| ID | Tipo | Descripción | Se resuelve en |
-| --- | --- | --- | --- |
-| R5 | Riesgo | Atomicidad entre escribir la reserva y publicar `ReservaCambiada`. | Paso 7 e implementación |
-| R6 | Riesgo | El pipeline de ingesta suma pasos que consumen el presupuesto de QA01 (R2). | Paso 7 y medición |
-| R7 | Riesgo | La contrapresión espacia consultas en saturación y puede afectar QA01. | Prototipo |
-| H4 | Hipótesis | Proporción lectura / escritura de ~90 / 10 y 80 % de aciertos de caché. | Prototipo |
-| P1 | Punto abierto | Criterio de asignación de una reserva a un `Viaje`. | Iteración 3 |
-| R1 | Riesgo (actualizado) | Se acotan las colas y se exige persistencia y réplica del buffer, sin fijar tecnología. La redundancia se evalúa en el Paso 7. | Paso 7 |
-
-Además, el estado de la iteración 2 en la tabla de la sección 1 pasa a **En curso** (Pasos 2 a 6 completos).
-
-# Iteración 2 - Paso 7: Analizar el diseño actual y revisar el logro de la meta
-
-No hubo observaciones a las preguntas del Paso 6, así que analizo el diseño tal como quedó: **ADR-05 a ADR-09 en estado Propuesta** y **R5 tratado como riesgo**. Más abajo recomiendo qué hacer con R5.
-
-Este análisis es estructural. Los números son hipótesis de diseño que solo un prototipo con pruebas de carga puede confirmar.
-
-## 1. Análisis individual de las decisiones
-
-| ADR | Qué aporta | Qué no resuelve | Veredicto |
-| --- | --- | --- | --- |
-| **ADR-05** Servicios sin estado con balanceador | Escalado selectivo y reemplazo de instancias sin pérdida de datos. | Cada pieza nueva (Puerta de entrada, canal de eventos, almacenes) es un posible punto único de falla para QA04. | Adecuada. Requiere redundancia explícita en Paso 5 o Paso 7 de la iteración siguiente. |
-| **ADR-06** CQRS particionado por viajero | Lectura por clave, sin joins ni contención con la escritura. Partición natural para QA05. | Suma latencia a QA01 y obliga a manejar consistencia eventual. | Adecuada, con un trade-off consciente. |
-| **ADR-07** Caché con invalidación por evento | Baja latencia y carga sobre el almacén. | Si la caché cae o arranca fría en un pico, la carga se multiplica (ver R9). | Adecuada, con riesgo de caché fría. |
-| **ADR-08** Límite de tasa, colas acotadas y contrapresión | Degradación controlada ante picos impredecibles, sin pérdida de ingesta. | La contrapresión espacia consultas y afecta a QA01 (R7). Los umbrales no están calibrados. | Adecuada. Es el punto más sensible a calibración. |
-| **ADR-09** Escritora única con 2 perfiles y canal separado | Una sola lógica de consolidación y aislamiento de picos entre ingesta y proyección. | Atomicidad entre escribir y publicar el evento (R5). Otro canal que operar. | Adecuada, con R5 pendiente. |
-
-## 2. Análisis del conjunto
-
-### 2.1.- Cuestionario de tácticas de performance (Bass, cap. 9)
-
-| Táctica | ¿Soportada? | Decisión | Riesgo |
-| --- | --- | --- | --- |
-| Manage event arrival | Parcial | Límite de tasa en la Puerta de entrada (ADR-08). No hay SLA formal por cliente. | M |
-| Limit event response | Sí | ADR-08 | B |
-| Prioritize events | Sí | Lectura, luego comandos, luego el resto (ADR-08). | B |
-| Reduce computational overhead | Sí | Modelo de lectura sin joins (ADR-06). | B |
-| Bound execution times | **No** | No se definieron timeouts por servicio ni por puerto de almacenamiento. | M |
-| Increase resources | Sí | Autoescalado (ADR-05). | M |
-| Introduce concurrency | Sí | Particiones y consumidores en paralelo por viajero (ADR-06, ADR-09). | B |
-| Maintain multiple copies of computations | Sí | Grupos de instancias con balanceador (ADR-05). | B |
-| Maintain multiple copies of data | Sí | Caché y réplicas (ADR-07). | M |
-| Bound queue sizes | Sí | ADR-08 | B |
-| Schedule resources | Parcial | Prioridad en la entrada. No hay política de scheduling entre consumidores. | B |
-
-Bass recomienda "instrumentar primero, optimizar después", y el diseño no define **observabilidad** más allá de `fechaGeneracionFuente` y `fechaPresentacion` (R10).
-
-### 2.2.- Presupuesto de QA01 (R2 y R6)
-
-QA01 pide menos de 5 minutos (300 s) en el 95 % de los casos. El pipeline agregó pasos en esta iteración. Una distribución de partida, **como hipótesis**:
-
-| Tramo | Presupuesto (hipótesis) |
-| --- | --- |
-| Espera por intervalo de consulta | ≤ 120 s |
-| Reintentos con espera progresiva (ADR-04) | ≤ 60 s |
-| Normalización, buffer y consolidación | ≤ 15 s |
-| Evento, proyección e invalidación | ≤ 10 s |
-| Refresco hacia el cliente (ver R8) | ≤ 30 s |
-| **Total** | **≤ 235 s** (margen de 65 s) |
-
-El intervalo de consulta domina el presupuesto. Con un intervalo de 180 s el total llegaría a ~295 s, sin margen. Los tramos internos (cola, consolidación y proyección) son de segundos y no son el problema, siempre que no haya saturación.
-
-### 2.3.- Tensión entre QA01 y el costo del polling (R3)
-
-El análisis muestra una tensión de fondo entre QA01 y la escala:
-
-| Escenario (hipótesis) | Cálculo | Consultas por segundo |
-| --- | --- | --- |
-| Todos los usuarios activos semanales, con correo conectado, intervalo de 120 s | 2 M / 120 | ~16 700 |
-| Los mismos con intervalo de 180 s | 2 M / 180 | ~11 100 |
-
-Son cotas superiores, porque no todos tienen correo conectado ni todos necesitan frescura. Aun así, consultar a todos con el mismo intervalo es costoso para el sistema y para los proveedores, que tienen límites de uso. Esto empuja hacia un **intervalo adaptativo**, con consultas más frecuentes para quien tiene un viaje próximo o en curso y menos frecuentes para el resto. No lo decido acá: es un punto de la iteración 3, donde vive US02.
-
-### 2.4.- Disponibilidad (QA04)
-
-Los elementos nuevos introducen puntos de falla que QA04 (máximo 5 minutos de inactividad por mes) no tolera sin redundancia:
-
-| Elemento | Efecto de su falla | Mitigación prevista | Estado |
-| --- | --- | --- | --- |
-| Puerta de entrada | Sin acceso para todos. | Balanceador redundante y chequeos de salud. | Pendiente de detallar |
-| Servicios sin estado | Se reemplazan por otra instancia. | ADR-05 | Cubierto |
-| Almacenes | Pérdida de lectura o escritura. | Réplicas por partición. | Pendiente de detallar |
-| Canal de eventos y buffer | La proyección o la ingesta se detienen. | Persistencia y réplica exigidas, sin tecnología fijada (R1). | Parcial |
-| Caché | Toda la lectura cae sobre el almacén. | Ver R9. | Pendiente |
-
-### 2.5.- Puntos de sensibilidad y de compromiso (en términos de Bass)
-
-| Tipo | Punto | Efecto |
-| --- | --- | --- |
-| Sensibilidad | Vencimiento de la caché y la invalidación por evento | Frescura percibida (QA01) frente a latencia (QA02, QA03). |
-| Sensibilidad | Umbrales del límite de tasa y de las colas | Rechazos innecesarios frente a protección de la lectura. |
-| Sensibilidad | Intervalo de consulta | Cumplimiento de QA01 frente a costo del polling (R3). |
-| Sensibilidad | Clave de partición `viajeroId` | Reparte bien la carga. Si hay viajeros muy activos, la partición queda desbalanceada. |
-| **Compromiso** | **CQRS**: lectura rápida (QA02, QA06) frente a latencia de actualización y consistencia (QA01) | |
-| **Compromiso** | **Contrapresión**: protección en picos (QA07) frente a frescura de las cuentas menos prioritarias (QA01) | |
-| **Compromiso** | **Servicios separados**: escalabilidad (QA06, QA07) frente a más piezas que pueden fallar (QA04) | |
-
-## 3. Riesgos, hipótesis y puntos abiertos que surgen
-
-| ID | Tipo | Descripción | Se resuelve en |
-| --- | --- | --- | --- |
-| R3 | Riesgo (se agrava) | El polling con intervalo uniforme no escala (ver 2.3). Falta una estrategia adaptativa y de particionado de consultas. | Iteración 3 |
-| R5 | Riesgo | Atomicidad entre escribir la reserva y publicar `ReservaCambiada`. Si falla en el medio, el modelo de lectura queda desactualizado. Recomiendo **convertirlo en ADR** al inicio de la iteración 3, porque afecta a QA01 y a la consistencia. | Iteración 3 |
-| R8 | Riesgo | **No hay mecanismo definido de refresco hacia el cliente.** Si los clientes consultan periódicamente (con `SinCambios` es barato), ese intervalo se suma a QA01 y genera parte de los 500 req/s. | Iteración 3 |
-| R9 | Riesgo | **Caché fría o caída:** en un pico de 2250 lecturas/s, la carga sobre el almacén pasaría de ~450 a ~2250/s. Hay que dimensionar el almacén para ese caso, o agrupar solicitudes iguales y calentar la caché. | Iteración 3 |
-| R10 | Riesgo | **Sin observabilidad ni detección de fallas definidas.** QA04 exige detección en menos de 1 minuto, y la optimización de performance necesita medición. | Iteración 3 |
-| R1 | Riesgo (reducido, sigue abierto) | Colas acotadas y persistencia exigida mitigan en parte el buffer como punto único de falla. La redundancia no está definida. | Iteración 3 |
-| R7 | Riesgo | La contrapresión puede degradar QA01 en saturación. | Prototipo |
-| R6 | Riesgo | El pipeline de ingesta suma pasos al presupuesto de QA01. | Prototipo |
-| H4 | Hipótesis | Lectura / escritura de ~90 / 10 y ~80 % de aciertos de caché (confirmada la primera como punto de partida). | Prototipo |
-| P1 | Punto abierto | Criterio de asignación de una reserva a un `Viaje`. | Iteración 3 |
-
-## 4. Cobertura de drivers al cierre de la iteración 2
-
-| Driver | Estado | Comentario |
-| --- | --- | --- |
-| QA05 (15 M de cuentas) | **Abordado a nivel estructural** | Partición por `viajeroId`, almacén de cuentas propio y acceso por clave. Falta validar los 300 ms en el p95 con volumen. |
-| QA06 (500 req/s) | **Abordado a nivel estructural** | Escalado horizontal, modelo de lectura y caché. Falta una prueba de carga. |
-| QA07 (picos de 2500 req/s) | **Parcial** | Límite de tasa, colas y prioridad. Quedan abiertos R9 (caché fría) y la calibración de umbrales. |
-| QA02 (800 ms en la lectura web) | **Abordado a nivel estructural** | Lectura por clave con caché y respuesta condicional. |
-| QA03 (1.4 s de primer contenido móvil) | **Parcial** | El servidor aporta una respuesta liviana, agregada y condicional. Faltan tácticas del lado del cliente (caché local, despliegue progresivo) y depende de la red móvil. |
-
-Efecto sobre drivers de iteraciones anteriores:
-
-| Driver | Estado | Cambio |
-| --- | --- | --- |
-| US01 | Parcial, más avanzado | Quedan definidos la API del Dashboard, la lectura, la edición manual y el modelo de lectura. Faltan filtros, el detalle de la deduplicación y los clientes. |
-| QA01 | Parcial | El pipeline interno está definido y presupuestado (2.2). Falta fijar el intervalo (R3) y el refresco al cliente (R8). |
-| QA04 | **Parcial, sin avance suficiente** | Aparecen nuevos puntos de falla (2.4) y falta observabilidad (R10). |
-
-## 5. Respuestas a las preguntas del Paso 7 de ADD
-
-**¿Cuánto diseño llevamos hecho?** La estructura del núcleo para escala y rendimiento está definida: descomposición de Lógica Trotamundos, modelo de lectura y escritura, caché, límites de carga e interfaces. Falta el detalle de disponibilidad, la estrategia de polling adaptativo y las tácticas del cliente móvil.
-
-**¿Se cumplió la meta?** **Sí, a nivel estructural.** El diseño ofrece caminos para QA05, QA06 y QA02. QA07 y QA03 quedan cubiertos parcialmente y su cumplimiento depende de calibración y de medición en el prototipo.
-
-**¿Hace falta otra iteración?** No una nueva iteración sobre los mismos drivers. Sí hay incertidumbre acumulada que no estaba en el plan original (R3, R5, R8, R9, R10 y la disponibilidad de los elementos nuevos). La decisión de dónde absorberla es tuya:
-
-| Opción | Descripción | Ventajas | Desventajas |
-| --- | --- | --- | --- |
-| **A. Absorber en la iteración 3** | Se agregan R3, R5, R8, R9 y R10 y QA04 residual a la meta de la iteración 3. QA10 y QA13 se tratan con menos peso, porque ya están en buena parte habilitados por Ports & Adapters y por el atributo `medio`. | Mantiene el plan de 5 iteraciones. Las cuestiones de polling, correo y consolidación están todas donde vive US02. | Iteración 3 se vuelve muy cargada (6 drivers del plan más los nuevos). |
-| **B. Insertar una iteración 2b** | Una iteración corta centrada en disponibilidad y observabilidad del núcleo (QA04, R1, R5, R9, R10). | Ataca QA04, un driver (H, H), antes de agregar más flujos. La iteración 3 queda más limpia. | Suma una iteración al plan. Retrasa el pipeline de reservas, que es la propuesta de valor. |
-
-**Mi recomendación es la opción A**, con una condición: que la iteración 3 empiece por R5 (como ADR), R3 y QA04 residual, antes de entrar en US02 y US03. Los argumentos son que el prototipo busca validar viabilidad y que el pipeline de reservas es lo que da valor diferencial. Elegiría la B si QA04 tuviera que demostrarse ya en el prototipo.
-
-## 6. Actualización del documento de arquitectura
-
-**Sección 1 (estado actual):**
-
-| Iteración | Objetivo | Estado |
-| --- | --- | --- |
-| 1 | Estructuración inicial del sistema | Completada |
-| 2 | Escalabilidad y rendimiento del núcleo | **Completada (a nivel estructural)** |
-| 3 | Pipeline de reservas, seguridad de acceso y extensibilidad | Pendiente |
-| 4 | Colaboración, resolución de problemas y analítica | Pendiente |
-| 5 | UX y recomendación (condicional) | Pendiente |
-
-**Sección 7.7 (nueva):** las tablas 2.1, 2.5, 3 y 4 de este paso se incorporan como "Iteración 2: consecuencias y análisis". El cierre es:
-
-> **Conclusión.** La meta se cumplió a nivel estructural: el núcleo quedó descompuesto en Puerta de entrada, Consulta, Escritura y Proyección, con modelo de lectura particionado, caché y control de carga. La incertidumbre restante se concentra en la **escala del polling frente a QA01**, la **disponibilidad de los elementos nuevos** y las **tácticas del cliente móvil**. Se trasladan a la iteración 3 los riesgos R3, R5, R8, R9 y R10. No se reordena el plan, salvo por el reparto de peso indicado en la opción elegida.
-
-**Sección 7.4:** se incorporan R8, R9 y R10, y se actualizan R1, R3 y R5 según la tabla de la sección 3.
-
-## Preguntas antes de cerrar la iteración
-
-1. ¿Eliges la **opción A o la B** para absorber los riesgos pendientes?
-2. ¿Confirmas que **R5 se convierta en ADR** al inicio de la iteración 3, en lugar de dejarlo solo como riesgo?
-
-Con tu respuesta cierro la iteración 2 y quedamos listos para el **Paso 2 de la iteración 3**.
+| Contexto, drivers y modelo de dominio | Secciones 2, 3 y 4 de `Architecture.md` |
+| 4 vistas: componentes, dos secuencias y despliegue | Sección 5 |
+| Contratos de canales, APIs, puertos y eventos | Sección 6 |
+| ADR-001 a ADR-007, con trazabilidad | Sección 7 |
+| Riesgos abiertos R1 a R5 | Se agregan como entrada del Paso 1 de la iteración 2 |
+
+---
+
+**Conclusión:** la meta de la iteración 1 se cumplió y la estructura base es sólida. Los riesgos más importantes, sobre todo R1, R3 y R4, no invalidan el diseño, pero conviene absorberlos en la iteración 2.

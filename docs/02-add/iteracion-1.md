@@ -1,54 +1,110 @@
-# Iteración 1 - Descomponiendo "Trotamundos"
+# Iteración 1 - Estructura general de "Trotamundos"
 
 ## PASO 2 - Objetivo de la Iteración
-Descomponer el sistema Trotamundos en sí mismo. Definir Aspectos básicos de la arquitectra como estilo arquitectónico general.
+Definir la estructura general del sistema Trotamundos: Descomponer el sistema Trotamundos en sí mismo. Definir Aspectos básicos de la arquitectra como estilo arquitectónico general.
 
 **Drivers a desarrollar en la iteración:**
 - US01 - Dashboard
-- QA01 - Presentar actualizaciones
-- QA04 - Inactividad no planificada
-- QA14 - APIs estándar
-- QA15 - Proveedor email
-
+- Constraint 1 - Uso desde web o dispositivo móvil
+- QA13 - Multiregión
+Estos drivers no se abordan concretamente pero son importantes a tener en cuenta para pensar la estructura general: QA04 (Inactividad no planificada), Concern 1 (Tecnologias e interfaces genéricas)
 
 ## PASO 3 - Descomposición
 Como estamos diseñando un sistema greenfield, el elemento a descomponer es el sistema entero.
 
 
 ## PASO 4 - Aplicando conceptos de diseño a los drivers seleccionados
+
+### 4.1 - Estilo general del sistema
+
 **Alternativas propuestas:**
 
-| Alternativa        | Pros                                                               | Contras                                                         | Drivers relacionados |
-|--------------------|--------------------------------------------------------------------|-----------------------------------------------------------------|----------------------|
-| Ports and Adapters | Independencia de la tecnología, modificabilidad, interoperabilidad | Complejidad de diseño (Muchas abstracciones e indirecciones)    | QA14, QA15           |
-| Cliente-Servidor   | Lógica centralizada, reusabilidad de servicios                     | Cuello de Botella, único punto de falla                         | QA04 (Negativo)      |
-| Pub-Sub            | Bajo acoplamiento, interoperabilidad, disponibilidad               | Perdida de consistencia, Baja trazabilidad, no admite sincronía | QA01, QA04           |
+| Alternativa | Pros | Contras | Drivers relacionados
+|---|---|---|---|
+| Cliente-Servidor | Lógica centralizada, reutilización para diferentes clientes | Cuello de botella, single-point-of-failure | US01, C1, QA04 (Negativo) |
+| Cliente que consulta directo a terceros | Menor costo en construccion | No tiene sentido, falta una interfaz para unificar datos | US01 (Negativo), C1 (Negativo)
 
-Al atacarse los QA14 y QA15 con _"Ports & Adapters"_ y los QA01 y QA04 con _"Pub-Sub"_, se puede plantear una combinación de estilos de tipo **overlay**.
+C1 impone web y móvil, y US01 exige un único punto de verdad que combine fuentes y elimine duplicados. Un servidor central es la forma más directa de cumplir ambas. Su contra principal es como soportar una caída, se debe abordar mas adelante.
+
+### 4.2 - Organización del servidor
+
+**Alternativas propuestas:**
+
+| Alternativa | Pros | Contras | Drivers relacionados
+|---|---|---|---|
+| Monolito modular | Desplieugue unico, facil de operar, limites claros entre modulos | Escala horizontal implica escalar todo | QA13 
+| Microservicios | Escalado y despliegue independiente por servicio | Costo operativo alto, innecesario para el prototipo que se busca realizar | QA13 
+
+Se combinan los estilos de "cliente-servidor" y "monolito modular", dando una combinación jerarquica de estilos. El primer estilo define la relación que tendrán los usuarios finales con el sistema, y la estructura interna del servidor sera monolito modular.
 
 
 ## PASO 5 - Instanciar elementos, asignar responsabilidades y definir interfaces
-La lógica del sistema (aún pendiente de refinamiento) actúa como **subscriber** de un canal atendido por un middleware (**publisher**). Este mismo es el core de un módulo "ports and adapters" el cual tendrá las interfaces (**puertos**) para comunicarse con los diferentes servicios externos (**adapters**), como proveedores de email, agencias de viaje, vuelos, etc.
+El sistema se divide en clientes (web y móvil) y un servidor monolito modular. Los clientes solo se comunican con el servidor a través de una API, que es el único punto de entrada, debe autenticar y enrutar a los módulos necesarios.
 
-ports and adapters se encarga de conectar con los servicios externos de forma síncrona (lanzando peticiones en un intervalo fijo de tiempo). Además, formatea cada entrada al estilo del subscriber y las publica en un buffer de actualizaciones. Dicho subscriber contiene toda la lógica restante (Se refinará más adelante).
+El servidor se organiza en módulos con distintas funcionalidades para el negocio:
+
+- API, punto de comunicacion para los usuarios
+- Autenticación, control de cuentas de viajero
+- Arreglos de viaje, lógica central
+- Integraciones externas, comunicación con agencias, sistemas de viajes, emails
+
+Es una primera aproximación a como se divide, mas adelante podrian generarse nuevos modulos o submodulos.
 
 
 ## PASO 6 - Vistas
 
-Descomposición del sistema:
+Descomposición actual del sistema:
 
 ```mermaid
 graph TD
-    A((Trotamundos)) ---- B((Conexión APIs))
-    A ---- C((Lógica Trotamundos))
+    S((Trotamundos)) --- CL((Clientes))
+    S --- SV((Servidor monolito modular))
+    CL --- WEB((Cliente web))
+    CL --- MOB((Cliente móvil))
+    SV --- API((API))
+    SV --- AU((Autenticación))
+    SV --- VIA((Arreglos de viaje))
+    SV --- INT((Integraciones externas))
 ```
 
-Vista de arquitectura:
+Vista C&C:
 
-<img width="60%" height="1978" alt="IMG-20261024-WA0085" src="https://github.com/user-attachments/assets/50e160c5-6be6-432b-b9ad-eec5a72028b6" />
+```mermaid
+flowchart LR
+    subgraph CLI ["Clientes"]
+        WEB["Cliente web"]
+        MOV["Cliente móvil"]
+    end
+
+    subgraph SRV ["Servidor monolito modular"]
+        API["API"]
+        AU["Autenticación"]
+        VIA["Arreglos de viaje"]
+        INT["Integraciones externas"]
+    end
+
+    DB["Base de datoss"]
+    EXT["Servicios externos"]
+
+    WEB -->|"HTTP"| API
+    MOV -->|"HTTP"| API
+    API --> AU
+    API --> VIA
+    INT -->|"registra actualizaciones"| VIA
+    VIA --> AU
+    INT <-->|"consulta periódica"| EXT
+    SRV --> DB
+
+    classDef core fill:#0000ff,color:#ffffff
+    classDef external fill:#ffff00,color:#000000
+    class API,AU,VIA,INT,DB core
+    class EXT external
+```
+
+- Azul: Sistema propio
+- Amarillo: Sistemas externos
+
 
 ## PASO 7 - Revisar la aplicación del método
 
-Como primera iteración en un sistema greenfield, tomamos una user story de referencia (US01) buscando entender el sistema mismo mientras se diseña. La misma no fue atacada directamente, sino como fuente de contexto para la toma de decisiones que definan la estructura base de la arquitectura. En cuanto a avances concretos, se descompuso el módulo más crítico de la arquitectura en términos de Performance, disponibilidad e interoperabilidad con terceros.
-
-En esta iteración se ve claramente (fig. 1.2) que resulta imperativo el desarrollo del módulo subscriber (lógica del negocio). Ahí se encuentra la mayor cantidad de incertidumbre del sistema. Además, la elección de Pub-Sub delega la conexión externa al publisher, liberándonos de esta carga para centrarnos en la lógica restante.
+Como primera iteración en un sistema greenfield, se fijó el esqueleto del sistema antes de entrar en cualquier mecanismo particular. Se abordó correctamente como es la vista de alto nivel, falta abordar donde hay mas incertidumbre, que es la comunicación con los servicios externos.
