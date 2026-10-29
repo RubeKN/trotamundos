@@ -12,6 +12,8 @@ A estas alturas del diseño del sistema, nos parece acorde abordar la confianza 
 ## PASO 3 - Descomposición
 Con una buena base de la lógica ya abordada, es fundamental tener un control de que datos se muestran o tranfieren entre usuarios, por lo que controlaremos las situaciones de riesgo que puedan llegar a crearse.
 
+Los principales modulos a desarollar es el de autenticación, conexion con integraciones externas (especificamente con mails) y una idea de como será el "compartir itinerarios".
+
 
 ## PASO 4 - Aplicando conceptos de diseño a los drivers seleccionados
 
@@ -39,6 +41,26 @@ Si es la primera vez que un usuario quiere iniciar en el sistema, se le solicita
 ## PASO 6 - Documentación
 
 ### Vistas
+### Vistas
+**Descomposición del sistema (D. Módulos):**
+
+```mermaid
+graph TD
+    A((Trotamundos)) ---- B((Conexiones externas))
+    B ---- BA((Conexion APIs))
+    B ---- BB((Conexion email))
+    A ---- C((Lógica Trotamundos))
+    A ---- J((Autenticación))
+    J ---- K((Seguridad de itinerarios))
+    J ---- H((Manejo de usuarios))
+    C ---- H
+    C ---- D((Operaciones del usuario))
+    C ---- G((Presentación dashboard))
+    D ---- E((Lectura de arreglos))
+    D ---- F((Escritura manual))
+    C ---- I((Funcionalidades adicionales))
+
+```
 
 **Vista comportamental:**
 
@@ -53,13 +75,13 @@ Si es la primera vez que un usuario quiere iniciar en el sistema, se le solicita
     participant BD as Base de Datos
 
     %% 1. Autenticación y Consentimiento inicial
-    rect rgb(240, 240, 240)
+    rect rgb(41, 12, 12)
     note over U, OAuth: 1. Autenticación y Autorización de Email (HTTPS / TLS)
     U->>C: Ingresa Email y Contraseña
     C->>S: POST /login (Cifrado vía HTTPS)
     S->>BD: Validar credenciales
     BD-->>S: Credenciales válidas
-    
+
     alt Primera vez en el sistema
         S-->>C: Requiere permisos de Email
         C->>OAuth: Solicitar consentimiento de acceso al Email
@@ -73,7 +95,7 @@ Si es la primera vez que un usuario quiere iniciar en el sistema, se le solicita
     end
 
     %% 2. Intento de acceso a itinerario no autorizado y Notificación
-    rect rgb(230, 240, 250)
+    rect rgb(10, 28, 46)
     note over UI, U: 2. Solicitud de Acceso e Intervención del Usuario
     UI->>C: Solicita ver el itinerario de U
     C->>S: GET /itinerarios/{id} (Cifrado vía HTTPS)
